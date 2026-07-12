@@ -38,7 +38,7 @@ defmodule Latch.Discovery do
       case Map.get(resource, "authorization_servers") do
         # There has to be exactly one issuer according to the spec.
         [issuer] when is_binary(issuer) ->
-          {:ok, issuer}
+          validate_authorization_server(issuer, pds_endpoint)
 
         _ ->
           {:error,
@@ -47,6 +47,28 @@ defmodule Latch.Discovery do
              reason: :no_authorization_server
            }}
       end
+    end
+  end
+
+  defp validate_authorization_server(issuer, pds_endpoint) do
+    case URI.parse(issuer) do
+      %URI{
+        scheme: scheme,
+        host: host,
+        path: nil,
+        query: nil,
+        fragment: nil,
+        userinfo: nil
+      }
+      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+        {:ok, issuer}
+
+      _ ->
+        {:error,
+         %DiscoveryError{
+           pds_endpoint: pds_endpoint,
+           reason: :invalid_authorization_server
+         }}
     end
   end
 

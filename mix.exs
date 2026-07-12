@@ -8,7 +8,8 @@ defmodule Latch.MixProject do
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      elixirc_paths: elixirc_paths(Mix.env())
     ]
   end
 
@@ -25,13 +26,18 @@ defmodule Latch.MixProject do
     ]
   end
 
+  # Specifies which paths to compile per environment.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:req, "~> 0.5"},
       {:jose, "~> 1.11"},
       {:jason, "~> 1.2"},
-      {:credo, "~> 1.7", only: [:dev, :test]}
+      {:credo, "~> 1.7", only: [:dev, :test]},
+      {:mimic, "~> 2.3", only: :test}
     ]
   end
 

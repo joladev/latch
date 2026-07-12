@@ -38,9 +38,9 @@ defmodule Latch.ServerMetadata do
   @spec parse(map()) :: {:ok, t()} | {:error, {:missing | :invalid, String.t()}}
   def parse(metadata) when is_map(metadata) do
     with :ok <- origin_url(metadata, "issuer"),
-         :ok <- https_url(metadata, "authorization_endpoint"),
-         :ok <- https_url(metadata, "token_endpoint"),
-         :ok <- https_url(metadata, "pushed_authorization_request_endpoint"),
+         :ok <- http_url(metadata, "authorization_endpoint"),
+         :ok <- http_url(metadata, "token_endpoint"),
+         :ok <- http_url(metadata, "pushed_authorization_request_endpoint"),
          :ok <- member(metadata, "response_types_supported", "code"),
          :ok <- member(metadata, "grant_types_supported", "authorization_code"),
          :ok <- member(metadata, "grant_types_supported", "refresh_token"),
@@ -65,7 +65,7 @@ defmodule Latch.ServerMetadata do
   end
 
   defp origin_url(metadata, field) do
-    with :ok <- https_url(metadata, field) do
+    with :ok <- http_url(metadata, field) do
       url = Map.get(metadata, field)
 
       case URI.parse(url) do
@@ -78,15 +78,19 @@ defmodule Latch.ServerMetadata do
     end
   end
 
-  defp https_url(metadata, field) do
+  defp http_url(metadata, field) do
     case Map.get(metadata, field) do
       nil ->
         {:error, {:missing, field}}
 
       value when is_binary(value) ->
         case URI.parse(value) do
-          %URI{scheme: "https", host: host} when is_binary(host) and host != "" -> :ok
-          _ -> {:error, {:invalid, field}}
+          %URI{scheme: scheme, host: host}
+          when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+            :ok
+
+          _ ->
+            {:error, {:invalid, field}}
         end
 
       _ ->

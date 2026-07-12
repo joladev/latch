@@ -177,7 +177,8 @@ defmodule Latch.Flow do
       ]
     end
 
-    with {:ok, body} <-
+    with :ok <- verify_refresh_issuer(server.issuer, session.issuer),
+         {:ok, body} <-
            dpop_request(server.token_endpoint, build_form, session.dpop_key),
          {:ok, tokens} <- parse_token_response(body),
          :ok <- verify_sub(tokens.sub, session.did) do
@@ -259,6 +260,12 @@ defmodule Latch.Flow do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Keyword.put(map, key, value)
+
+  defp verify_refresh_issuer(issuer, issuer), do: :ok
+
+  defp verify_refresh_issuer(_discovered_issuer, _session_issuer) do
+    {:error, %SecurityViolation{reason: :issuer_mismatch}}
+  end
 
   defp verify_sub(sub, sub), do: :ok
   defp verify_sub(_sub, _expected), do: {:error, %SecurityViolation{reason: :did_mismatch}}

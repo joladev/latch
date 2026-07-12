@@ -140,7 +140,6 @@
           {Credo.Check.Refactor.FunctionArity, []},
           {Credo.Check.Refactor.LongQuoteBlocks, []},
           {Credo.Check.Refactor.MapJoin, []},
-          {Credo.Check.Refactor.MatchInCondition, []},
           {Credo.Check.Refactor.NegatedConditionsInUnless, []},
           {Credo.Check.Refactor.NegatedConditionsWithElse, []},
           {Credo.Check.Refactor.Nesting, [max_nesting: 3]},
@@ -198,6 +197,7 @@
           {Credo.Check.Refactor.FilterReject, []},
           {Credo.Check.Refactor.IoPuts, []},
           {Credo.Check.Refactor.MapMap, []},
+          {Credo.Check.Refactor.MatchInCondition, []},
           {Credo.Check.Refactor.ModuleDependencies, []},
           {Credo.Check.Refactor.NegatedIsNil, []},
           {Credo.Check.Refactor.RejectFilter, []},
@@ -205,7 +205,7 @@
           {Credo.Check.Warning.LazyLogging, []},
           {Credo.Check.Warning.LeakyEnvironment, []},
           {Credo.Check.Warning.MapGetUnsafePass, []},
-          {Credo.Check.Warning.UnsafeToAtom, []}
+          {Credo.Check.Warning.UnsafeToAtom, []},
 
           # {Credo.Check.Refactor.MapInto, []},
 

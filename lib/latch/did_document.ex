@@ -45,46 +45,51 @@ defmodule Latch.DIDDocument do
   end
 
   defp claimed_handle(document) do
-    result =
-      document
-      |> Map.get("alsoKnownAs", [])
-      |> Enum.find_value(fn
-        "at://" <> handle = uri when is_binary(uri) ->
-          if Handle.valid?(handle) do
-            handle
-          else
-            nil
-          end
+    case Map.get(document, "alsoKnownAs", []) do
+      aliases when is_list(aliases) ->
+        if handle = Enum.find_value(aliases, &handle_from_alias/1) do
+          {:ok, handle}
+        else
+          {:error, :invalid_handle}
+        end
 
-        _ ->
-          nil
-      end)
-
-    case result do
-      nil -> {:error, :invalid_handle}
-      handle -> {:ok, handle}
+      _ ->
+        {:error, :invalid_handle}
     end
   end
+
+  defp handle_from_alias("at://" <> handle) do
+    if Handle.valid?(handle), do: handle
+  end
+
+  defp handle_from_alias(_alias), do: nil
 
   defp pds_endpoint(document) do
-    result =
-      document
-      |> Map.get("service", [])
-      |> Enum.find(fn service ->
-        String.ends_with?(to_string(service["id"]), "#atproto_pds") and
-          Map.get(service, "type") == @pds_type
-      end)
+    case Map.get(document, "service", []) do
+      services when is_list(services) ->
+        if service = Enum.find(services, &pds_service?/1) do
+          validate_endpoint(Map.get(service, "serviceEndpoint"))
+        else
+          {:error, :no_pds}
+        end
 
-    case result do
-      nil -> {:error, :no_pds}
-      service -> validate_endpoint(service["serviceEndpoint"])
+      _ ->
+        {:error, :no_pds}
     end
   end
 
+  defp pds_service?(%{"id" => id, "type" => @pds_type}) when is_binary(id) do
+    String.ends_with?(id, "#atproto_pds")
+  end
+
+  defp pds_service?(_service), do: false
+
+  # We allow both HTTPS and HTTP to support local development, but in the future
+  # we may lock the HTTP option behind a local dev flag and be stricter.
   defp validate_endpoint(url) when is_binary(url) do
     case URI.parse(url) do
       %URI{scheme: scheme, host: host, path: nil, query: nil, userinfo: nil}
-      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+      when scheme in ["https", "http"] and is_binary(host) and host != "" ->
         {:ok, url}
 
       _ ->

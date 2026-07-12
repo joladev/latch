@@ -37,7 +37,7 @@ defmodule Latch.TokenResponse do
   def parse(response) when is_map(response) do
     with :ok <- string(response, "access_token"),
          :ok <- string(response, "refresh_token"),
-         :ok <- string(response, "scope"),
+         :ok <- scope(response),
          :ok <- token_type(response),
          :ok <- expires_in(response),
          :ok <- did(response, "sub") do
@@ -57,6 +57,16 @@ defmodule Latch.TokenResponse do
       nil -> {:error, {:missing, field}}
       value when is_binary(value) and value != "" -> :ok
       _ -> {:error, {:invalid, field}}
+    end
+  end
+
+  defp scope(response) do
+    with :ok <- string(response, "scope") do
+      if "atproto" in String.split(Map.fetch!(response, "scope")) do
+        :ok
+      else
+        {:error, {:invalid, "scope"}}
+      end
     end
   end
 
