@@ -35,10 +35,10 @@ defmodule Latch.Flow do
   - `:login_hint` - the user's handle or DID
   """
 
-  @spec par(Config.t(), String.t(), ServerMetadata.t(), keyword()) ::
+  @spec par(Config.t(), ServerMetadata.t(), keyword()) ::
           {:ok, String.t()}
           | {:error, InvalidResponse.t() | MissingDPoPNonce.t() | OAuth.t() | Transport.t()}
-  def par(%Config{} = config, session_id, %ServerMetadata{} = server, opts) do
+  def par(%Config{} = config, %ServerMetadata{} = server, opts) do
     client_id = Keyword.fetch!(opts, :client_id)
     client_jwk = Keyword.fetch!(opts, :client_jwk)
     redirect_uri = Keyword.fetch!(opts, :redirect_uri)
@@ -67,7 +67,7 @@ defmodule Latch.Flow do
     end
 
     with {:ok, body} <-
-           dpop_request(config, session_id, server.par_endpoint, build_form, dpop_key) do
+           dpop_request(config, server.par_endpoint, build_form, dpop_key) do
       parse_par_response(body)
     end
   end
@@ -102,7 +102,7 @@ defmodule Latch.Flow do
   ## Optional
   - `:now` - base time for `expires_at` (defaults to the current time)
   """
-  @spec exchange_code(Config.t(), String.t(), keyword()) ::
+  @spec exchange_code(Config.t(), keyword()) ::
           {:ok, Session.t()}
           | {:error,
              InvalidResponse.t()
@@ -110,7 +110,7 @@ defmodule Latch.Flow do
              | OAuth.t()
              | SecurityViolation.t()
              | Transport.t()}
-  def exchange_code(%Config{} = config, session_id, opts) do
+  def exchange_code(%Config{} = config, opts) do
     client_id = Keyword.fetch!(opts, :client_id)
     client_jwk = Keyword.fetch!(opts, :client_jwk)
     redirect_uri = Keyword.fetch!(opts, :redirect_uri)
@@ -135,10 +135,10 @@ defmodule Latch.Flow do
       ]
     end
 
-    with {:ok, body} <- dpop_request(config, session_id, token_endpoint, build_form, dpop_key),
+    with {:ok, body} <- dpop_request(config, token_endpoint, build_form, dpop_key),
          {:ok, tokens} <- parse_token_response(body),
          :ok <- verify_sub(tokens.sub, expected_did) do
-      {:ok, build_session(tokens, issuer, pds_endpoint, dpop_key, session_id, now)}
+      {:ok, build_session(tokens, issuer, pds_endpoint, dpop_key, now)}
     end
   end
 
@@ -156,7 +156,7 @@ defmodule Latch.Flow do
   ## Optional
   - `:now` - base time for `expires_at` (defaults to the current time)
   """
-  @spec refresh(Config.t(), String.t(), ServerMetadata.t(), Session.t(), keyword()) ::
+  @spec refresh(Config.t(), ServerMetadata.t(), Session.t(), keyword()) ::
           {:ok, Session.t()}
           | {:error,
              InvalidResponse.t()
@@ -164,7 +164,7 @@ defmodule Latch.Flow do
              | OAuth.t()
              | SecurityViolation.t()
              | Transport.t()}
-  def refresh(config, session_id, %ServerMetadata{} = server, %Session{} = session, opts) do
+  def refresh(config, %ServerMetadata{} = server, %Session{} = session, opts) do
     client_id = Keyword.fetch!(opts, :client_id)
     client_jwk = Keyword.fetch!(opts, :client_jwk)
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
@@ -181,7 +181,7 @@ defmodule Latch.Flow do
 
     with :ok <- verify_refresh_issuer(server.issuer, session.issuer),
          {:ok, body} <-
-           dpop_request(config, session_id, server.token_endpoint, build_form, session.dpop_key),
+           dpop_request(config, server.token_endpoint, build_form, session.dpop_key),
          {:ok, tokens} <- parse_token_response(body),
          :ok <- verify_sub(tokens.sub, session.did) do
       {:ok,
@@ -190,32 +190,32 @@ defmodule Latch.Flow do
          server.issuer,
          session.pds_endpoint,
          session.dpop_key,
-         session.session_id,
          now
        )}
     end
   end
 
-  defp dpop_request(config, session_id, url, build_form, dpop_key) do
+  defp dpop_request(config, url, build_form, dpop_key) do
     origin = origin(url)
+    thumbprint = JOSE.JWK.thumbprint(dpop_key)
 
     nonce =
-      case Latch.NonceCache.get_nonce(config, session_id, origin) do
+      case Latch.NonceCache.get_nonce(config, thumbprint, origin) do
         {:ok, nonce} -> nonce
         :error -> nil
       end
 
-    send_dpop(config, session_id, url, build_form, dpop_key, origin, nonce)
+    send_dpop(config, url, build_form, dpop_key, origin, thumbprint, nonce)
   end
 
-  defp send_dpop(config, session_id, url, build_form, dpop_key, origin, nonce) do
+  defp send_dpop(config, url, build_form, dpop_key, origin, thumbprint, nonce) do
     proof = DPoP.proof(dpop_key, "POST", url, nonce: nonce)
 
     with {:ok, %{status: status, body: raw, headers: headers}} <-
            HTTP.post_form(url, build_form.(), [{"dpop", proof}]),
          {:ok, body} <- decode_json(raw) do
       if fresh = nonce_header(headers) do
-        Latch.NonceCache.put_nonce(config, session_id, origin, fresh)
+        Latch.NonceCache.put_nonce(config, thumbprint, origin, fresh)
       end
 
       cond do
@@ -223,7 +223,7 @@ defmodule Latch.Flow do
           {:ok, body}
 
         retry_nonce?(body, nonce) ->
-          retry_with_nonce(config, session_id, url, build_form, dpop_key, origin, headers)
+          retry_with_nonce(config, url, build_form, dpop_key, origin, thumbprint, headers)
 
         is_binary(Map.get(body, "error")) ->
           {:error,
@@ -239,9 +239,9 @@ defmodule Latch.Flow do
     end
   end
 
-  defp retry_with_nonce(config, session_id, url, build_form, dpop_key, origin, headers) do
+  defp retry_with_nonce(config, url, build_form, dpop_key, origin, thumbprint, headers) do
     if nonce = nonce_header(headers) do
-      send_dpop(config, session_id, url, build_form, dpop_key, origin, nonce)
+      send_dpop(config, url, build_form, dpop_key, origin, thumbprint, nonce)
     else
       {:error, %MissingDPoPNonce{}}
     end
@@ -307,7 +307,7 @@ defmodule Latch.Flow do
   defp verify_sub(sub, sub), do: :ok
   defp verify_sub(_sub, _expected), do: {:error, %SecurityViolation{reason: :did_mismatch}}
 
-  defp build_session(tokens, issuer, pds_endpoint, dpop_key, session_id, now) do
+  defp build_session(tokens, issuer, pds_endpoint, dpop_key, now) do
     %Session{
       did: tokens.sub,
       access_token: tokens.access_token,
@@ -316,8 +316,7 @@ defmodule Latch.Flow do
       scope: tokens.scope,
       issuer: issuer,
       pds_endpoint: pds_endpoint,
-      expires_at: DateTime.add(now, tokens.expires_in, :second),
-      session_id: session_id
+      expires_at: DateTime.add(now, tokens.expires_in, :second)
     }
   end
 end

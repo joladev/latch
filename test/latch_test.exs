@@ -37,7 +37,7 @@ defmodule LatchTest do
       expect(Identity, :resolve_handle, fn @handle -> {:ok, identity} end)
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :par, fn _config, _session_id, ^server, opts ->
+      expect(Flow, :par, fn _config, ^server, opts ->
         assert opts[:client_id] == config.client_id
         assert opts[:redirect_uri] == config.redirect_uri
         assert opts[:scope] == "atproto"
@@ -100,8 +100,7 @@ defmodule LatchTest do
         issuer: @issuer,
         token_endpoint: @issuer <> "/oauth/token",
         pkce_verifier: "pkce-verifier",
-        dpop_key: dpop_key,
-        session_id: "32-random-characters"
+        dpop_key: dpop_key
       }
 
       session = %Session{
@@ -112,13 +111,12 @@ defmodule LatchTest do
         scope: "atproto",
         issuer: @issuer,
         pds_endpoint: @pds,
-        expires_at: ~U[2026-01-01 01:00:00Z],
-        session_id: "32 random chars"
+        expires_at: ~U[2026-01-01 01:00:00Z]
       }
 
       :ok = Latch.TestStore.put_request(state, request, 600)
 
-      expect(Flow, :exchange_code, fn _config, _session_id, opts ->
+      expect(Flow, :exchange_code, fn _config, opts ->
         assert opts[:code] == code
         assert opts[:code_verifier] == "pkce-verifier"
         assert opts[:dpop_key] == dpop_key
@@ -164,8 +162,7 @@ defmodule LatchTest do
         scope: "atproto",
         issuer: @issuer,
         pds_endpoint: @pds,
-        expires_at: ~U[2026-01-01 00:00:00Z],
-        session_id: "32 random chars"
+        expires_at: ~U[2026-01-01 00:00:00Z]
       }
 
       refreshed_session = %{session | access_token: "refreshed-access-token"}
@@ -173,7 +170,7 @@ defmodule LatchTest do
 
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :refresh, fn _config, _session_id, ^server, ^session, opts ->
+      expect(Flow, :refresh, fn _config, ^server, ^session, opts ->
         assert opts[:client_id] == config.client_id
         assert opts[:client_jwk] == config.signing_key
         {:ok, refreshed_session}

@@ -9,8 +9,7 @@ defmodule Latch.Request do
     :issuer,
     :token_endpoint,
     :pkce_verifier,
-    :dpop_key,
-    :session_id
+    :dpop_key
   ]
   defstruct @enforce_keys
 
@@ -22,7 +21,6 @@ defmodule Latch.Request do
           issuer: String.t(),
           token_endpoint: String.t(),
           pkce_verifier: String.t(),
-          dpop_key: JOSE.JWK.t(),
-          session_id: String.t()
+          dpop_key: JOSE.JWK.t()
         }
 end

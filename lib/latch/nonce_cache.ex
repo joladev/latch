@@ -14,8 +14,8 @@ defmodule Latch.NonceCache do
   @default_sweep_interval :timer.minutes(2)
   @default_ttl_ms :timer.minutes(5)
 
-  def get_nonce(config, session_id, origin) do
-    key = {session_id, origin}
+  def get_nonce(config, dpop_thumbprint, origin) do
+    key = {dpop_thumbprint, origin}
 
     case :ets.lookup(table(config), key) do
       [{^key, nonce, expires_at}] ->
@@ -30,9 +30,9 @@ defmodule Latch.NonceCache do
     end
   end
 
-  def put_nonce(config, session_id, origin, nonce, ttl_ms \\ @default_ttl_ms) do
+  def put_nonce(config, dpop_thumbprint, origin, nonce, ttl_ms \\ @default_ttl_ms) do
     expires_at = System.monotonic_time(:millisecond) + ttl_ms
-    :ets.insert(table(config), {{session_id, origin}, nonce, expires_at})
+    :ets.insert(table(config), {{dpop_thumbprint, origin}, nonce, expires_at})
     :ok
   end
 

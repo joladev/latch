@@ -69,12 +69,11 @@ defmodule Latch do
     verifier = PKCE.generate_verifier()
     dpop_key = DPoP.generate_key()
     state = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
-    session_id = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
     with {:ok, identity} <- Identity.resolve_handle(handle),
          {:ok, server} <- Discovery.discover(identity.pds_endpoint),
          {:ok, request_uri} <-
-           Flow.par(config, session_id, server,
+           Flow.par(config, server,
              client_id: config.client_id,
              client_jwk: config.signing_key,
              redirect_uri: config.redirect_uri,
@@ -92,8 +91,7 @@ defmodule Latch do
            issuer: server.issuer,
            token_endpoint: server.token_endpoint,
            pkce_verifier: verifier,
-           dpop_key: dpop_key,
-           session_id: session_id
+           dpop_key: dpop_key
          },
          :ok <- store_request(config, request) do
       {:ok, Flow.authorization_url(server, config.client_id, request_uri)}
@@ -117,7 +115,7 @@ defmodule Latch do
     %Config{} = config = config(name)
 
     with {:ok, server} <- Discovery.discover(session.pds_endpoint) do
-      Flow.refresh(config, session.session_id, server, session,
+      Flow.refresh(config, server, session,
         client_id: config.client_id,
         client_jwk: config.signing_key
       )
@@ -147,7 +145,7 @@ defmodule Latch do
        )
        when is_binary(code) do
     with :ok <- verify_issuer(request, issuer) do
-      Flow.exchange_code(config, request.session_id,
+      Flow.exchange_code(config,
         client_id: config.client_id,
         client_jwk: config.signing_key,
         redirect_uri: config.redirect_uri,
@@ -157,8 +155,7 @@ defmodule Latch do
         expected_did: request.did,
         pds_endpoint: request.pds_endpoint,
         issuer: request.issuer,
-        token_endpoint: request.token_endpoint,
-        session_id: request.session_id
+        token_endpoint: request.token_endpoint
       )
     end
   end

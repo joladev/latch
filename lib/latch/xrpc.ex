@@ -60,17 +60,27 @@ defmodule Latch.XRPC do
 
   defp request(%Config{} = config, %Session{} = session, http_method, url, body) do
     origin = origin(url)
+    thumbprint = JOSE.JWK.thumbprint(session.dpop_key)
 
     nonce =
-      case Latch.NonceCache.get_nonce(config, session.session_id, origin) do
+      case Latch.NonceCache.get_nonce(config, thumbprint, origin) do
         {:ok, nonce} -> nonce
         :error -> nil
       end
 
-    send_dpop(config, session, http_method, url, body, origin, nonce)
+    send_dpop(config, session, http_method, url, body, origin, thumbprint, nonce)
   end
 
-  defp send_dpop(%Config{} = config, %Session{} = session, http_method, url, body, origin, nonce) do
+  defp send_dpop(
+         %Config{} = config,
+         %Session{} = session,
+         http_method,
+         url,
+         body,
+         origin,
+         thumbprint,
+         nonce
+       ) do
     proof =
       DPoP.proof(session.dpop_key, http_method, url,
         nonce: nonce,
@@ -82,11 +92,20 @@ defmodule Latch.XRPC do
     with {:ok, %{status: status, body: raw, headers: resp_headers}} <-
            HTTP.request(http_method, url, headers, body) do
       if fresh = nonce_header(resp_headers) do
-        Latch.NonceCache.put_nonce(config, session.session_id, origin, fresh)
+        Latch.NonceCache.put_nonce(config, thumbprint, origin, fresh)
       end
 
       if needs_nonce?(status, resp_headers) do
-        retry_with_nonce(config, session, http_method, url, body, origin, resp_headers)
+        retry_with_nonce(
+          config,
+          session,
+          http_method,
+          url,
+          body,
+          origin,
+          thumbprint,
+          resp_headers
+        )
       else
         handle_response(status, raw)
       end
@@ -110,10 +129,11 @@ defmodule Latch.XRPC do
          url,
          body,
          origin,
+         thumbprint,
          headers
        ) do
     if nonce = nonce_header(headers) do
-      send_dpop(config, session, http_method, url, body, origin, nonce)
+      send_dpop(config, session, http_method, url, body, origin, thumbprint, nonce)
     else
       {:error, %MissingDPoPNonce{}}
     end

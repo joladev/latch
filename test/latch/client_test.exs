@@ -35,7 +35,7 @@ defmodule Latch.ClientTest do
 
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :refresh, fn _config, _session_id, ^server, ^stale_session, opts ->
+      expect(Flow, :refresh, fn _config, ^server, ^stale_session, opts ->
         assert opts[:client_id] == config.client_id
         assert opts[:client_jwk] == config.signing_key
         {:ok, refreshed_session}
@@ -79,7 +79,7 @@ defmodule Latch.ClientTest do
 
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :refresh, fn _config, _session_id, ^server, ^stale_session, _opts ->
+      expect(Flow, :refresh, fn _config, ^server, ^stale_session, _opts ->
         {:ok, refreshed_session}
       end)
 
@@ -99,8 +99,7 @@ defmodule Latch.ClientTest do
       scope: "atproto",
       issuer: @issuer,
       pds_endpoint: @pds,
-      expires_at: expires_at,
-      session_id: "random 32 chars"
+      expires_at: expires_at
     }
   end
 

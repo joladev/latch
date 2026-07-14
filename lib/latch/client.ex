@@ -100,7 +100,7 @@ defmodule Latch.Client do
   defp do_refresh(config, session) do
     result =
       with {:ok, server} <- Discovery.discover(session.pds_endpoint) do
-        Flow.refresh(config, session.session_id, server, session,
+        Flow.refresh(config, server, session,
           client_id: config.client_id,
           client_jwk: config.signing_key
         )

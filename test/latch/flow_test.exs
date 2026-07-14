@@ -27,8 +27,6 @@ defmodule Latch.FlowTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      session_id = "session-id"
-
       client_jwk = JOSE.JWK.generate_key({:ec, "P-256"})
       dpop_key = JOSE.JWK.generate_key({:ec, "P-256"})
 
@@ -58,7 +56,7 @@ defmodule Latch.FlowTest do
       end)
 
       assert {:ok, session} =
-               Flow.exchange_code(config, session_id,
+               Flow.exchange_code(config,
                  client_id: "https://client.example.com/oauth-client-metadata.json",
                  client_jwk: client_jwk,
                  redirect_uri: "https://client.example.com/oauth/callback",
@@ -69,8 +67,7 @@ defmodule Latch.FlowTest do
                  pds_endpoint: "https://pds.example.com",
                  issuer: "https://issuer.example.com",
                  token_endpoint: "https://issuer.example.com/oauth/token",
-                 now: ~U[2026-01-01 00:00:00Z],
-                 session_id: "random 32 chars"
+                 now: ~U[2026-01-01 00:00:00Z]
                )
 
       assert session.did == did
@@ -99,8 +96,6 @@ defmodule Latch.FlowTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      session_id = "session-id"
-
       server = %ServerMetadata{
         issuer: "https://issuer.example.com",
         authorization_endpoint: "https://issuer.example.com/oauth/authorize",
@@ -126,7 +121,7 @@ defmodule Latch.FlowTest do
       end)
 
       assert {:ok, "urn:ietf:params:oauth:request_uri:request"} =
-               Flow.par(config, session_id, server,
+               Flow.par(config, server,
                  client_id: "https://client.example.com/oauth-client-metadata.json",
                  client_jwk: client_jwk,
                  redirect_uri: "https://client.example.com/oauth/callback",
@@ -156,8 +151,6 @@ defmodule Latch.FlowTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      session_id = "session-id"
-
       server = %ServerMetadata{
         issuer: "https://other.example.com",
         authorization_endpoint: "https://other.example.com/oauth/authorize",
@@ -174,12 +167,11 @@ defmodule Latch.FlowTest do
         scope: "atproto",
         issuer: "https://issuer.example.com",
         pds_endpoint: "https://pds.example.com",
-        expires_at: ~U[2026-01-01 00:00:00Z],
-        session_id: "random 32 chars"
+        expires_at: ~U[2026-01-01 00:00:00Z]
       }
 
       assert {:error, %SecurityViolation{reason: :issuer_mismatch}} =
-               Flow.refresh(config, session_id, server, session,
+               Flow.refresh(config, server, session,
                  client_id: "client-id",
                  client_jwk: nil
                )
