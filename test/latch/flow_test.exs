@@ -14,6 +14,21 @@ defmodule Latch.FlowTest do
       access_token = "access-token"
       refresh_token = "refresh-token"
 
+      config = %Latch.Config{
+        store: Latch.TestStore,
+        client_id: "https://client.example.com/oauth-client-metadata.json",
+        redirect_uri: "https://client.example.com/oauth/callback",
+        scope: "atproto",
+        signing_key: nil,
+        name: :"flow_test_#{inspect(self())}"
+      }
+
+      start_link_supervised!(
+        {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
+      )
+
+      session_id = "session-id"
+
       client_jwk = JOSE.JWK.generate_key({:ec, "P-256"})
       dpop_key = JOSE.JWK.generate_key({:ec, "P-256"})
 
@@ -43,7 +58,7 @@ defmodule Latch.FlowTest do
       end)
 
       assert {:ok, session} =
-               Flow.exchange_code(
+               Flow.exchange_code(config, session_id,
                  client_id: "https://client.example.com/oauth-client-metadata.json",
                  client_jwk: client_jwk,
                  redirect_uri: "https://client.example.com/oauth/callback",
@@ -54,7 +69,8 @@ defmodule Latch.FlowTest do
                  pds_endpoint: "https://pds.example.com",
                  issuer: "https://issuer.example.com",
                  token_endpoint: "https://issuer.example.com/oauth/token",
-                 now: ~U[2026-01-01 00:00:00Z]
+                 now: ~U[2026-01-01 00:00:00Z],
+                 session_id: "random 32 chars"
                )
 
       assert session.did == did
@@ -69,6 +85,21 @@ defmodule Latch.FlowTest do
     test "creates a pushed authorization request" do
       client_jwk = JOSE.JWK.generate_key({:ec, "P-256"})
       dpop_key = JOSE.JWK.generate_key({:ec, "P-256"})
+
+      config = %Latch.Config{
+        store: Latch.TestStore,
+        client_id: "https://client.example.com/oauth-client-metadata.json",
+        redirect_uri: "https://client.example.com/oauth/callback",
+        scope: "atproto",
+        signing_key: nil,
+        name: :"flow_test_#{inspect(self())}"
+      }
+
+      start_link_supervised!(
+        {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
+      )
+
+      session_id = "session-id"
 
       server = %ServerMetadata{
         issuer: "https://issuer.example.com",
@@ -95,7 +126,7 @@ defmodule Latch.FlowTest do
       end)
 
       assert {:ok, "urn:ietf:params:oauth:request_uri:request"} =
-               Flow.par(server,
+               Flow.par(config, session_id, server,
                  client_id: "https://client.example.com/oauth-client-metadata.json",
                  client_jwk: client_jwk,
                  redirect_uri: "https://client.example.com/oauth/callback",
@@ -111,6 +142,21 @@ defmodule Latch.FlowTest do
   describe "refresh/3" do
     test "rejects a refresh when discovery returns a different issuer" do
       reject(HTTP, :post_form, 3)
+
+      config = %Latch.Config{
+        store: Latch.TestStore,
+        client_id: "https://client.example.com/oauth-client-metadata.json",
+        redirect_uri: "https://client.example.com/oauth/callback",
+        scope: "atproto",
+        signing_key: nil,
+        name: :"flow_test_#{inspect(self())}"
+      }
+
+      start_link_supervised!(
+        {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
+      )
+
+      session_id = "session-id"
 
       server = %ServerMetadata{
         issuer: "https://other.example.com",
@@ -128,11 +174,15 @@ defmodule Latch.FlowTest do
         scope: "atproto",
         issuer: "https://issuer.example.com",
         pds_endpoint: "https://pds.example.com",
-        expires_at: ~U[2026-01-01 00:00:00Z]
+        expires_at: ~U[2026-01-01 00:00:00Z],
+        session_id: "random 32 chars"
       }
 
       assert {:error, %SecurityViolation{reason: :issuer_mismatch}} =
-               Flow.refresh(server, session, client_id: "client-id", client_jwk: nil)
+               Flow.refresh(config, session_id, server, session,
+                 client_id: "client-id",
+                 client_jwk: nil
+               )
     end
   end
 end

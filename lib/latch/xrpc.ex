@@ -8,6 +8,7 @@ defmodule Latch.XRPC do
   persistence are the caller's concerns, not this module's.
   """
 
+  alias Latch.Config
   alias Latch.DPoP
   alias Latch.Error.InvalidResponse
   alias Latch.Error.MissingDPoPNonce
@@ -22,9 +23,10 @@ defmodule Latch.XRPC do
   @doc """
   Performs and authenticated XRPC query against the session's PDS.
   """
-  @spec query(Session.t(), String.t(), keyword()) :: {:ok, map()} | {:error, error()}
-  def query(%Session{} = session, method, params \\ []) do
+  @spec query(Config.t(), Session.t(), String.t(), keyword()) :: {:ok, map()} | {:error, error()}
+  def query(%Config{} = config, %Session{} = session, method, params \\ []) do
     request(
+      config,
       session,
       "GET",
       session.pds_endpoint <> "/xrpc/" <> method <> query_string(params),
@@ -35,18 +37,20 @@ defmodule Latch.XRPC do
   @doc """
   Performs and authenticated XRPC procedure against the session's PDS.
   """
-  @spec procedure(Session.t(), String.t(), map()) :: {:ok, map()} | {:error, error()}
-  def procedure(%Session{} = session, method, body) do
-    request(session, "POST", session.pds_endpoint <> "/xrpc/" <> method, {:json, body})
+  @spec procedure(Config.t(), Session.t(), String.t(), map()) :: {:ok, map()} | {:error, error()}
+  def procedure(%Config{} = config, %Session{} = session, method, body) do
+    request(config, session, "POST", session.pds_endpoint <> "/xrpc/" <> method, {:json, body})
   end
 
   @doc """
   Uploads raw bytes of content_type as a blob, returning the response with
   the blog reference.
   """
-  @spec upload_blob(Session.t(), binary(), String.t()) :: {:ok, map()} | {:error, error()}
-  def upload_blob(%Session{} = session, bytes, content_type) do
+  @spec upload_blob(Config.t(), Session.t(), binary(), String.t()) ::
+          {:ok, map()} | {:error, error()}
+  def upload_blob(%Config{} = config, %Session{} = session, bytes, content_type) do
     request(
+      config,
       session,
       "POST",
       session.pds_endpoint <> "/xrpc/com.atproto.repo.uploadBlob",
@@ -54,7 +58,19 @@ defmodule Latch.XRPC do
     )
   end
 
-  defp request(%Session{} = session, http_method, url, body, nonce \\ nil) do
+  defp request(%Config{} = config, %Session{} = session, http_method, url, body) do
+    origin = origin(url)
+
+    nonce =
+      case Latch.NonceCache.get_nonce(config, session.session_id, origin) do
+        {:ok, nonce} -> nonce
+        :error -> nil
+      end
+
+    send_dpop(config, session, http_method, url, body, origin, nonce)
+  end
+
+  defp send_dpop(%Config{} = config, %Session{} = session, http_method, url, body, origin, nonce) do
     proof =
       DPoP.proof(session.dpop_key, http_method, url,
         nonce: nonce,
@@ -65,8 +81,12 @@ defmodule Latch.XRPC do
 
     with {:ok, %{status: status, body: raw, headers: resp_headers}} <-
            HTTP.request(http_method, url, headers, body) do
-      if is_nil(nonce) and needs_nonce?(status, resp_headers) do
-        retry_with_nonce(session, http_method, url, body, resp_headers)
+      if fresh = nonce_header(resp_headers) do
+        Latch.NonceCache.put_nonce(config, session.session_id, origin, fresh)
+      end
+
+      if needs_nonce?(status, resp_headers) do
+        retry_with_nonce(config, session, http_method, url, body, origin, resp_headers)
       else
         handle_response(status, raw)
       end
@@ -83,10 +103,30 @@ defmodule Latch.XRPC do
     end
   end
 
-  defp retry_with_nonce(session, http_method, url, body, headers) do
-    case nonce_header(headers) do
-      nil -> {:error, %MissingDPoPNonce{}}
-      nonce -> request(session, http_method, url, body, nonce)
+  defp retry_with_nonce(
+         %Config{} = config,
+         %Session{} = session,
+         http_method,
+         url,
+         body,
+         origin,
+         headers
+       ) do
+    if nonce = nonce_header(headers) do
+      send_dpop(config, session, http_method, url, body, origin, nonce)
+    else
+      {:error, %MissingDPoPNonce{}}
+    end
+  end
+
+  defp origin(url) do
+    %URI{scheme: scheme, host: host, port: port} = URI.parse(url)
+    default = if scheme == "https", do: 443, else: 80
+
+    if is_nil(port) or port == default do
+      "#{scheme}://#{host}"
+    else
+      "#{scheme}://#{host}:#{port}"
     end
   end
 

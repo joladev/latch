@@ -25,7 +25,7 @@ defmodule Latch.Client do
   @spec query(Config.t(), String.t(), String.t(), keyword()) ::
           {:ok, map()} | {:error, Error.t()}
   def query(%Config{} = config, did, method, params \\ []) do
-    call(config, did, fn session -> XRPC.query(session, method, params) end)
+    call(config, did, fn session -> XRPC.query(config, session, method, params) end)
   end
 
   @doc """
@@ -34,7 +34,7 @@ defmodule Latch.Client do
   @spec procedure(Config.t(), String.t(), String.t(), map()) ::
           {:ok, map()} | {:error, Error.t()}
   def procedure(%Config{} = config, did, method, body) do
-    call(config, did, fn session -> XRPC.procedure(session, method, body) end)
+    call(config, did, fn session -> XRPC.procedure(config, session, method, body) end)
   end
 
   @doc """
@@ -43,7 +43,7 @@ defmodule Latch.Client do
   @spec upload_blob(Config.t(), String.t(), binary(), String.t()) ::
           {:ok, map()} | {:error, Error.t()}
   def upload_blob(%Config{} = config, did, bytes, content_type) do
-    call(config, did, fn session -> XRPC.upload_blob(session, bytes, content_type) end)
+    call(config, did, fn session -> XRPC.upload_blob(config, session, bytes, content_type) end)
   end
 
   defp call(config, did, fun) do
@@ -100,7 +100,7 @@ defmodule Latch.Client do
   defp do_refresh(config, session) do
     result =
       with {:ok, server} <- Discovery.discover(session.pds_endpoint) do
-        Flow.refresh(server, session,
+        Flow.refresh(config, session.session_id, server, session,
           client_id: config.client_id,
           client_jwk: config.signing_key
         )

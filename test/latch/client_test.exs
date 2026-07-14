@@ -35,13 +35,16 @@ defmodule Latch.ClientTest do
 
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :refresh, fn ^server, ^stale_session, opts ->
+      expect(Flow, :refresh, fn _config, _session_id, ^server, ^stale_session, opts ->
         assert opts[:client_id] == config.client_id
         assert opts[:client_jwk] == config.signing_key
         {:ok, refreshed_session}
       end)
 
-      expect(XRPC, :query, fn ^refreshed_session, "app.bsky.actor.getProfile", actor: @did ->
+      expect(XRPC, :query, fn _config,
+                              ^refreshed_session,
+                              "app.bsky.actor.getProfile",
+                              actor: @did ->
         {:ok, %{"did" => @did}}
       end)
 
@@ -67,16 +70,16 @@ defmodule Latch.ClientTest do
       :ok = Latch.TestStore.put_session(@did, stale_session)
 
       expect(XRPC, :query, 2, fn
-        ^stale_session, "app.bsky.actor.getProfile", actor: @did ->
+        _config, ^stale_session, "app.bsky.actor.getProfile", actor: @did ->
           {:error, %XRPCError{status: 401, body: %{}}}
 
-        ^refreshed_session, "app.bsky.actor.getProfile", actor: @did ->
+        _config, ^refreshed_session, "app.bsky.actor.getProfile", actor: @did ->
           {:ok, %{"did" => @did}}
       end)
 
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :refresh, fn ^server, ^stale_session, _opts ->
+      expect(Flow, :refresh, fn _config, _session_id, ^server, ^stale_session, _opts ->
         {:ok, refreshed_session}
       end)
 
@@ -96,7 +99,8 @@ defmodule Latch.ClientTest do
       scope: "atproto",
       issuer: @issuer,
       pds_endpoint: @pds,
-      expires_at: expires_at
+      expires_at: expires_at,
+      session_id: "random 32 chars"
     }
   end
 

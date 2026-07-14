@@ -17,7 +17,8 @@ defmodule Latch.Session do
     :scope,
     :issuer,
     :pds_endpoint,
-    :expires_at
+    :expires_at,
+    :session_id
   ]
   defstruct @enforce_keys
 
@@ -29,6 +30,7 @@ defmodule Latch.Session do
           scope: String.t(),
           issuer: String.t(),
           pds_endpoint: String.t(),
-          expires_at: DateTime.t()
+          expires_at: DateTime.t(),
+          session_id: String.t()
         }
 end

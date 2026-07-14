@@ -15,7 +15,7 @@ defmodule Latch.Config do
   @default_request_ttl 600
 
   @enforce_keys [:store, :client_id, :redirect_uri, :scope, :signing_key]
-  defstruct @enforce_keys ++ [:client_name, :client_uri, request_ttl: @default_request_ttl]
+  defstruct @enforce_keys ++ [:client_name, :client_uri, :name, request_ttl: @default_request_ttl]
 
   @type t :: %__MODULE__{
           store: module(),
@@ -24,6 +24,7 @@ defmodule Latch.Config do
           scope: String.t(),
           signing_key: JOSE.JWK.t(),
           client_name: String.t() | nil,
-          client_uri: String.t() | nil
+          client_uri: String.t() | nil,
+          name: term()
         }
 end

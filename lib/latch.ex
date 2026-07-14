@@ -3,6 +3,8 @@ defmodule Latch do
   A library for building atproto OAuth integrations. Stateless.
   """
 
+  use Supervisor
+
   alias Latch.Config
   alias Latch.Discovery
   alias Latch.DPoP
@@ -16,7 +18,41 @@ defmodule Latch do
   alias Latch.Request
   alias Latch.Session
 
-  def client_metadata(%Config{} = config) do
+  def start_link(opts) do
+    name = Keyword.fetch!(opts, :name)
+    Supervisor.start_link(__MODULE__, opts, name: name)
+  end
+
+  def child_spec(opts) do
+    name = Keyword.fetch!(opts, :name)
+
+    %{
+      id: name,
+      type: :supervisor,
+      start: {__MODULE__, :start_link, [opts]}
+    }
+  end
+
+  @impl Supervisor
+  def init(opts) do
+    config = Keyword.fetch!(opts, :config)
+    name = Keyword.fetch!(opts, :name)
+    config = Map.put(config, :name, name)
+
+    :persistent_term.put({__MODULE__, self()}, config)
+    :persistent_term.put({__MODULE__, name}, config)
+
+    Supervisor.init(
+      [
+        {Latch.NonceCache, opts}
+      ],
+      strategy: :one_for_one
+    )
+  end
+
+  def client_metadata(name) do
+    %Config{} = config = config(name)
+
     Latch.ClientMetadata.build(
       client_id: config.client_id,
       redirect_uris: [config.redirect_uri],
@@ -27,15 +63,18 @@ defmodule Latch do
     )
   end
 
-  def authorize(handle, %Config{} = config) do
+  def authorize(name, handle) do
+    %Config{} = config = config(name)
+
     verifier = PKCE.generate_verifier()
     dpop_key = DPoP.generate_key()
     state = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+    session_id = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
     with {:ok, identity} <- Identity.resolve_handle(handle),
          {:ok, server} <- Discovery.discover(identity.pds_endpoint),
          {:ok, request_uri} <-
-           Flow.par(server,
+           Flow.par(config, session_id, server,
              client_id: config.client_id,
              client_jwk: config.signing_key,
              redirect_uri: config.redirect_uri,
@@ -53,27 +92,32 @@ defmodule Latch do
            issuer: server.issuer,
            token_endpoint: server.token_endpoint,
            pkce_verifier: verifier,
-           dpop_key: dpop_key
+           dpop_key: dpop_key,
+           session_id: session_id
          },
          :ok <- store_request(config, request) do
       {:ok, Flow.authorization_url(server, config.client_id, request_uri)}
     end
   end
 
-  def callback(%{"state" => state} = params, %Config{} = config) when is_binary(state) do
+  def callback(name, %{"state" => state} = params) when is_binary(state) do
+    %Config{} = config = config(name)
+
     with {:ok, request} <- take_request(config, state),
          :ok <- verify_state(request, state) do
       complete_callback(params, request, config)
     end
   end
 
-  def callback(_params, %Config{}) do
+  def callback(_name, _params) do
     {:error, %InvalidResponse{reason: :unexpected_response}}
   end
 
-  def refresh(%Session{} = session, %Config{} = config) do
+  def refresh(name, %Session{} = session) do
+    %Config{} = config = config(name)
+
     with {:ok, server} <- Discovery.discover(session.pds_endpoint) do
-      Flow.refresh(server, session,
+      Flow.refresh(config, session.session_id, server, session,
         client_id: config.client_id,
         client_jwk: config.signing_key
       )
@@ -98,12 +142,12 @@ defmodule Latch do
 
   defp complete_callback(
          %{"code" => code, "iss" => issuer},
-         request,
+         %Request{} = request,
          config
        )
        when is_binary(code) do
     with :ok <- verify_issuer(request, issuer) do
-      Flow.exchange_code(
+      Flow.exchange_code(config, request.session_id,
         client_id: config.client_id,
         client_jwk: config.signing_key,
         redirect_uri: config.redirect_uri,
@@ -113,7 +157,8 @@ defmodule Latch do
         expected_did: request.did,
         pds_endpoint: request.pds_endpoint,
         issuer: request.issuer,
-        token_endpoint: request.token_endpoint
+        token_endpoint: request.token_endpoint,
+        session_id: request.session_id
       )
     end
   end
@@ -156,5 +201,9 @@ defmodule Latch do
 
   defp verify_issuer(_request, _issuer) do
     {:error, %SecurityViolation{reason: :issuer_mismatch}}
+  end
+
+  defp config(name) do
+    :persistent_term.get({__MODULE__, name})
   end
 end

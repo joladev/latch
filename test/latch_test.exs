@@ -30,13 +30,14 @@ defmodule LatchTest do
         signing_key: nil
       }
 
+      pid = start_latch(config)
       identity = %Identity{did: @did, handle: @handle, pds_endpoint: @pds}
       server = server()
 
       expect(Identity, :resolve_handle, fn @handle -> {:ok, identity} end)
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :par, fn ^server, opts ->
+      expect(Flow, :par, fn _config, _session_id, ^server, opts ->
         assert opts[:client_id] == config.client_id
         assert opts[:redirect_uri] == config.redirect_uri
         assert opts[:scope] == "atproto"
@@ -48,7 +49,7 @@ defmodule LatchTest do
         {:ok, request_uri}
       end)
 
-      assert {:ok, redirect_url} = Latch.authorize(@handle, config)
+      assert {:ok, redirect_url} = Latch.authorize(pid, @handle)
 
       assert URI.parse(redirect_url).path == "/oauth/authorize"
 
@@ -89,6 +90,8 @@ defmodule LatchTest do
         signing_key: nil
       }
 
+      pid = start_latch(config)
+
       request = %Request{
         state: state,
         did: @did,
@@ -97,7 +100,8 @@ defmodule LatchTest do
         issuer: @issuer,
         token_endpoint: @issuer <> "/oauth/token",
         pkce_verifier: "pkce-verifier",
-        dpop_key: dpop_key
+        dpop_key: dpop_key,
+        session_id: "32-random-characters"
       }
 
       session = %Session{
@@ -108,12 +112,13 @@ defmodule LatchTest do
         scope: "atproto",
         issuer: @issuer,
         pds_endpoint: @pds,
-        expires_at: ~U[2026-01-01 01:00:00Z]
+        expires_at: ~U[2026-01-01 01:00:00Z],
+        session_id: "32 random chars"
       }
 
       :ok = Latch.TestStore.put_request(state, request, 600)
 
-      expect(Flow, :exchange_code, fn opts ->
+      expect(Flow, :exchange_code, fn _config, _session_id, opts ->
         assert opts[:code] == code
         assert opts[:code_verifier] == "pkce-verifier"
         assert opts[:dpop_key] == dpop_key
@@ -126,16 +131,16 @@ defmodule LatchTest do
 
       assert {:ok, ^session} =
                Latch.callback(
+                 pid,
                  %{
                    "state" => state,
                    "iss" => @issuer,
                    "code" => code
-                 },
-                 config
+                 }
                )
 
       assert {:error, %Latch.Error.SecurityViolation{reason: :state_mismatch}} =
-               Latch.callback(%{"state" => state, "iss" => @issuer, "code" => code}, config)
+               Latch.callback(pid, %{"state" => state, "iss" => @issuer, "code" => code})
     end
   end
 
@@ -149,6 +154,8 @@ defmodule LatchTest do
         signing_key: nil
       }
 
+      pid = start_latch(config)
+
       session = %Session{
         did: @did,
         access_token: "access-token",
@@ -157,7 +164,8 @@ defmodule LatchTest do
         scope: "atproto",
         issuer: @issuer,
         pds_endpoint: @pds,
-        expires_at: ~U[2026-01-01 00:00:00Z]
+        expires_at: ~U[2026-01-01 00:00:00Z],
+        session_id: "32 random chars"
       }
 
       refreshed_session = %{session | access_token: "refreshed-access-token"}
@@ -165,13 +173,13 @@ defmodule LatchTest do
 
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :refresh, fn ^server, ^session, opts ->
+      expect(Flow, :refresh, fn _config, _session_id, ^server, ^session, opts ->
         assert opts[:client_id] == config.client_id
         assert opts[:client_jwk] == config.signing_key
         {:ok, refreshed_session}
       end)
 
-      assert {:ok, ^refreshed_session} = Latch.refresh(session, config)
+      assert {:ok, ^refreshed_session} = Latch.refresh(pid, session)
     end
   end
 
@@ -183,5 +191,10 @@ defmodule LatchTest do
       par_endpoint: @issuer <> "/oauth/par",
       scopes_supported: ["atproto"]
     }
+  end
+
+  defp start_latch(config) do
+    name = String.to_atom("latch_#{inspect(self())}")
+    start_link_supervised!({Latch, name: name, config: config})
   end
 end
