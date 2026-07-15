@@ -16,8 +16,9 @@ defmodule Latch.Store do
 
   @type state :: binary()
   @type did :: binary()
-  # TODO fix the term here, it should be specific atoms not "something"
-  @type store_error :: {:error, :not_found} | {:error, term()}
+
+  @type reason :: :not_found | :backend_error
+  @type store_error :: {:error, reason()}
 
   @doc """
   Store an inflight request under `state` for at least `ttl_seconds`.

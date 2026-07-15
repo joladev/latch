@@ -14,6 +14,8 @@ defmodule Latch.Error.Store do
     * `:delete_expired_requests`
   """
 
+  alias Latch.Store, as: StoreBehavior
+
   defexception [:action, :did, :reason]
 
   @type action ::
@@ -25,7 +27,11 @@ defmodule Latch.Error.Store do
           | :put_request
           | :delete_expired_requests
 
-  @type t :: %__MODULE__{action: action(), did: String.t() | nil, reason: term() | nil}
+  @type t :: %__MODULE__{
+          action: action(),
+          did: String.t() | nil,
+          reason: StoreBehavior.reason()
+        }
 
   @impl Exception
   def message(%__MODULE__{action: action, did: did, reason: reason}) do
