@@ -3,7 +3,6 @@ defmodule LatchTest do
   use Mimic
   doctest Latch
 
-  alias Latch.Config
   alias Latch.Discovery
   alias Latch.Flow
   alias Latch.Identity
@@ -22,25 +21,25 @@ defmodule LatchTest do
     test "resolves identity, creates PAR, stores the request, and returns the redirect URL" do
       request_uri = "urn:ietf:params:oauth:request_uri:request"
 
-      config = %Config{
-        store: Latch.TestStore,
-        client_id: @client_id,
-        redirect_uri: @redirect_uri,
-        scope: "atproto",
-        signing_key: nil
-      }
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id: @client_id,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          signing_key: nil
+        )
 
-      pid = start_latch(config)
       identity = %Identity{did: @did, handle: @handle, pds_endpoint: @pds}
       server = server()
 
       expect(Identity, :resolve_handle, fn @handle -> {:ok, identity} end)
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :par, fn _config, ^server, opts ->
+      expect(Flow, :par, fn config, ^server, opts ->
         assert opts[:client_id] == config.client_id
         assert opts[:redirect_uri] == config.redirect_uri
-        assert opts[:scope] == "atproto"
+        assert opts[:scope] == config.scope
         assert opts[:login_hint] == @handle
         assert is_binary(opts[:state])
         assert is_binary(opts[:code_challenge])
@@ -82,15 +81,14 @@ defmodule LatchTest do
       code = "authorization-code"
       dpop_key = JOSE.JWK.generate_key({:ec, "P-256"})
 
-      config = %Config{
-        store: Latch.TestStore,
-        client_id: @client_id,
-        redirect_uri: @redirect_uri,
-        scope: "atproto",
-        signing_key: nil
-      }
-
-      pid = start_latch(config)
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id: @client_id,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          signing_key: nil
+        )
 
       request = %Request{
         state: state,
@@ -144,15 +142,14 @@ defmodule LatchTest do
 
   describe "refresh/2" do
     test "rediscovers the authorization server and refreshes the session" do
-      config = %Config{
-        store: Latch.TestStore,
-        client_id: @client_id,
-        redirect_uri: @redirect_uri,
-        scope: "atproto",
-        signing_key: nil
-      }
-
-      pid = start_latch(config)
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id: @client_id,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          signing_key: nil
+        )
 
       session = %Session{
         did: @did,
@@ -170,9 +167,9 @@ defmodule LatchTest do
 
       expect(Discovery, :discover, fn @pds -> {:ok, server} end)
 
-      expect(Flow, :refresh, fn _config, ^server, ^session, opts ->
+      expect(Flow, :refresh, fn config, ^server, ^session, opts ->
         assert opts[:client_id] == config.client_id
-        assert opts[:client_jwk] == config.signing_key
+        assert opts[:client_jwk] == nil
         {:ok, refreshed_session}
       end)
 
@@ -190,8 +187,9 @@ defmodule LatchTest do
     }
   end
 
-  defp start_latch(config) do
+  defp start_latch(opts) do
     name = String.to_atom("latch_#{inspect(self())}")
-    start_link_supervised!({Latch, name: name, config: config})
+    opts = Keyword.put(opts, :name, name)
+    start_link_supervised!({Latch, opts})
   end
 end

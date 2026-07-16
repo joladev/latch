@@ -37,7 +37,8 @@ defmodule Latch.MixProject do
       {:jose, "~> 1.11"},
       {:jason, "~> 1.2"},
       {:credo, "~> 1.7", only: [:dev, :test]},
-      {:mimic, "~> 2.3", only: :test}
+      {:mimic, "~> 2.3", only: :test},
+      {:nimble_options, "~> 1.1"}
     ]
   end
 

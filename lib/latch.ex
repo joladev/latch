@@ -20,7 +20,9 @@ defmodule Latch do
 
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
-    Supervisor.start_link(__MODULE__, opts, name: name)
+    config = Config.build!(opts)
+
+    Supervisor.start_link(__MODULE__, %{name: name, config: config}, name: name)
   end
 
   def child_spec(opts) do
@@ -34,17 +36,13 @@ defmodule Latch do
   end
 
   @impl Supervisor
-  def init(opts) do
-    config = Keyword.fetch!(opts, :config)
-    name = Keyword.fetch!(opts, :name)
-    config = Map.put(config, :name, name)
-
+  def init(%{name: name, config: config}) do
     :persistent_term.put({__MODULE__, self()}, config)
     :persistent_term.put({__MODULE__, name}, config)
 
     Supervisor.init(
       [
-        {Latch.NonceCache, opts}
+        {Latch.NonceCache, config: config, name: name}
       ],
       strategy: :one_for_one
     )

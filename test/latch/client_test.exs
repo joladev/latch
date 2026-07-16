@@ -24,7 +24,8 @@ defmodule Latch.ClientTest do
         client_id: @client_id,
         redirect_uri: @redirect_uri,
         scope: "atproto",
-        signing_key: nil
+        signing_key: nil,
+        name: :name
       }
 
       stale_session = session("stale-access-token", ~U[2020-01-01 00:00:00Z])
@@ -60,7 +61,8 @@ defmodule Latch.ClientTest do
         client_id: @client_id,
         redirect_uri: @redirect_uri,
         scope: "atproto",
-        signing_key: nil
+        signing_key: nil,
+        name: :name
       }
 
       stale_session = session("stale-access-token", ~U[2030-01-01 00:00:00Z])
