@@ -12,7 +12,7 @@ defmodule LatchTest do
   alias Latch.Session
 
   @did "did:plc:bvraa6gajy4tfr3eh2sisdkr"
-  @handle "alice.example.com"
+  @handle "jola.dev"
   @pds "https://pds.example.com"
   @issuer "https://issuer.example.com"
   @client_id "https://client.example.com/oauth-client-metadata.json"
@@ -126,7 +126,7 @@ defmodule LatchTest do
         {:ok, session}
       end)
 
-      assert {:ok, ^session} =
+      assert {:ok, %{did: @did, handle: @handle}} =
                Latch.callback(
                  pid,
                  %{

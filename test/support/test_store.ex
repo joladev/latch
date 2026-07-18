@@ -29,8 +29,6 @@ defmodule Latch.TestStore do
     end
   end
 
-  def delete_expired_requests(_max_age_seconds), do: :ok
-
   def fetch_session(did) do
     case Process.get(@sessions_key, %{}) do
       %{^did => %Session{} = session} -> {:ok, session}

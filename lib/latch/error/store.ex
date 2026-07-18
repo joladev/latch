@@ -11,7 +11,6 @@ defmodule Latch.Error.Store do
     * `:update_session`
     * `:take_request`
     * `:put_request`
-    * `:delete_expired_requests`
   """
 
   alias Latch.Store, as: StoreBehavior
@@ -25,7 +24,6 @@ defmodule Latch.Error.Store do
           | :update_session
           | :take_request
           | :put_request
-          | :delete_expired_requests
 
   @type t :: %__MODULE__{
           action: action(),

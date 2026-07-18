@@ -37,8 +37,10 @@ defmodule Latch do
   2. The user authorizes, their authorization server redirects back to your
      `redirect_uri`.
   3. `callback/2` validates the callback params, exchanges the code, and
-     returns a `Latch.Session` for persisting, probably via the same module
-     that implements your `Latch.Store`.
+     stores the session for you using your `Latch.Store` implementation.
+     Returns identity information for the user.
+
+  When a user logs out, call `delete_session` to clear their session.
 
   ## Authenticated requests
 
@@ -81,7 +83,6 @@ defmodule Latch do
   alias Latch.Identity
   alias Latch.PKCE
   alias Latch.Request
-  alias Latch.Session
 
   @type name :: atom() | pid()
 
@@ -213,12 +214,13 @@ defmodule Latch do
   @doc """
   Completes an authorization flow from the OAuth callback params.
 
-  Consumes the stored request — single use, so a replayed callback fails
-  with `%Latch.Error.SecurityViolation{}` — verifies the issuer, exchanges
-  the code, and returns the established `Latch.Session`.
+  Consumes a stored request. Single use, so a replayed callback fails
+  with `%Latch.Error.SecurityViolation{}`. Verifies the issuer, exchanges
+  the code, stores the session using the `Latch.Store` implementation, and
+  returns identity information.
   """
   @spec callback(name(), map()) ::
-          {:ok, Session.t()}
+          {:ok, %{did: String.t(), handle: String.t()}}
           | {:error,
              InvalidResponse.t()
              | MissingDPoPNonce.t()
@@ -229,14 +231,24 @@ defmodule Latch do
   def callback(name, %{"state" => state} = params) when is_binary(state) do
     %Config{} = config = config(name)
 
-    with {:ok, request} <- take_request(config, state),
-         :ok <- verify_state(request, state) do
+    with {:ok, request} <- take_request(config, state) do
       complete_callback(params, request, config)
     end
   end
 
   def callback(_name, _params) do
     {:error, %InvalidResponse{reason: :unexpected_response}}
+  end
+
+  @doc """
+  """
+  @spec delete_session(name(), String.t()) :: :ok | {:error, StoreError.t()}
+  def delete_session(name, did) do
+    %Config{} = config = config(name)
+
+    with {:error, reason} <- config.store.delete_session(did) do
+      {:error, %StoreError{action: :delete_session, did: did, reason: reason}}
+    end
   end
 
   @doc """
@@ -339,19 +351,22 @@ defmodule Latch do
          config
        )
        when is_binary(code) do
-    with :ok <- verify_issuer(request, issuer) do
-      Flow.exchange_code(config,
-        client_id: config.client_id,
-        client_jwk: config.signing_key,
-        redirect_uri: config.redirect_uri,
-        code: code,
-        code_verifier: request.pkce_verifier,
-        dpop_key: request.dpop_key,
-        expected_did: request.did,
-        pds_endpoint: request.pds_endpoint,
-        issuer: request.issuer,
-        token_endpoint: request.token_endpoint
-      )
+    with :ok <- verify_issuer(request, issuer),
+         {:ok, session} <-
+           Flow.exchange_code(config,
+             client_id: config.client_id,
+             client_jwk: config.signing_key,
+             redirect_uri: config.redirect_uri,
+             code: code,
+             code_verifier: request.pkce_verifier,
+             dpop_key: request.dpop_key,
+             expected_did: request.did,
+             pds_endpoint: request.pds_endpoint,
+             issuer: request.issuer,
+             token_endpoint: request.token_endpoint
+           ),
+         :ok <- store_session(config, session) do
+      {:ok, %{did: session.did, handle: request.handle}}
     end
   end
 
@@ -370,6 +385,12 @@ defmodule Latch do
     end
   end
 
+  defp store_session(config, session) do
+    with {:error, reason} <- config.store.put_session(session.did, session) do
+      {:error, %StoreError{action: :put_session, did: session.did, reason: reason}}
+    end
+  end
+
   defp take_request(config, state) do
     case config.store.take_request(state) do
       {:ok, %Request{} = request} ->
@@ -381,12 +402,6 @@ defmodule Latch do
       {:error, reason} ->
         {:error, %StoreError{action: :take_request, did: nil, reason: reason}}
     end
-  end
-
-  defp verify_state(%Request{state: state}, state), do: :ok
-
-  defp verify_state(_request, _state) do
-    {:error, %SecurityViolation{reason: :state_mismatch}}
   end
 
   defp verify_issuer(%Request{issuer: issuer}, issuer), do: :ok

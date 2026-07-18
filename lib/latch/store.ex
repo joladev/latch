@@ -35,13 +35,6 @@ defmodule Latch.Store do
   @callback take_request(state()) :: {:ok, Request.t()} | store_error()
 
   @doc """
-  Remove requests older than `max_age_seconds`.
-
-  Optional housekeeping: return the count deleted. `:ok` also fine.
-  """
-  @callback delete_expired_requests(max_age_seconds :: pos_integer()) :: non_neg_integer() | :ok
-
-  @doc """
   Fetch the session for `did`.
   """
   @callback fetch_session(did()) :: {:ok, Session.t()} | store_error()
