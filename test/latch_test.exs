@@ -3,6 +3,7 @@ defmodule LatchTest do
   use Mimic
   doctest Latch
 
+  alias Latch.Client
   alias Latch.Discovery
   alias Latch.Flow
   alias Latch.Identity
@@ -140,8 +141,8 @@ defmodule LatchTest do
     end
   end
 
-  describe "refresh/2" do
-    test "rediscovers the authorization server and refreshes the session" do
+  describe "query/4" do
+    test "delegates" do
       pid =
         start_latch(
           store: Latch.TestStore,
@@ -151,29 +152,57 @@ defmodule LatchTest do
           signing_key: nil
         )
 
-      session = %Session{
-        did: @did,
-        access_token: "access-token",
-        refresh_token: "refresh-token",
-        dpop_key: nil,
-        scope: "atproto",
-        issuer: @issuer,
-        pds_endpoint: @pds,
-        expires_at: ~U[2026-01-01 00:00:00Z]
-      }
-
-      refreshed_session = %{session | access_token: "refreshed-access-token"}
-      server = server()
-
-      expect(Discovery, :discover, fn @pds -> {:ok, server} end)
-
-      expect(Flow, :refresh, fn config, ^server, ^session, opts ->
-        assert opts[:client_id] == config.client_id
-        assert opts[:client_jwk] == nil
-        {:ok, refreshed_session}
+      expect(Client, :query, fn _config, @did, "app.bsky.actor.getProfile", actor: @did ->
+        {:ok, %{"did" => @did}}
       end)
 
-      assert {:ok, ^refreshed_session} = Latch.refresh(pid, session)
+      assert {:ok, %{"did" => @did}} =
+               Latch.query(pid, @did, "app.bsky.actor.getProfile", actor: @did)
+    end
+  end
+
+  describe "procedure/4" do
+    test "delegates" do
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id: @client_id,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          signing_key: nil
+        )
+
+      body = %{
+        "repo" => @did,
+        "collection" => "app.bsky.feed.post",
+        "record" => %{"text" => "hi"}
+      }
+
+      expect(Client, :procedure, fn _config, @did, "com.atproto.repo.putRecord", ^body ->
+        {:ok, %{"uri" => "at://#{@did}/app.bsky.feed.post/abc"}}
+      end)
+
+      assert {:ok, %{"uri" => _}} =
+               Latch.procedure(pid, @did, "com.atproto.repo.putRecord", body)
+    end
+  end
+
+  describe "upload_blob/4" do
+    test "delegates" do
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id: @client_id,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          signing_key: nil
+        )
+
+      expect(Client, :upload_blob, fn _config, @did, <<1, 2, 3>>, "image/png" ->
+        {:ok, %{"blob" => %{"ref" => "reffers"}}}
+      end)
+
+      assert {:ok, %{"blob" => _}} = Latch.upload_blob(pid, @did, <<1, 2, 3>>, "image/png")
     end
   end
 

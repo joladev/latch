@@ -1,23 +1,95 @@
 defmodule Latch do
   @moduledoc """
-  A library for building atproto OAuth integrations. Stateless.
+  A library for building atproto OAuth integrations with a low-level
+  client runtime.
+
+  Latch implements [atproto OAuth](https://atproto.com/specs/oauth), including:
+  * identity resolution
+  * server discovery
+  * pushed authorization requests (PAR)
+  * proof key for code exchange (PKCE)
+  * demonstrating proof of possession (DPoP) with server-issued nonces
+  * token exchange
+  * refresh
+  * authenticated XRPC calls to a user's PDS
+
+  ## Get started
+
+  Add `Latch` to your supervision tree, giving it a unique name
+  and a `Latch.Store` implementation:
+
+    children = [
+      {Latch,
+        name: MyApp.Latch,
+        store: MyApp.LatchStore,
+        client_id: "https://myapp.example/oauth-client-metadata.json",
+        redirect_uri: "https://myapp.example/auth/callback",
+        scope: "atproto",
+        signing_key: MyApp.Credentials.signing_key()}
+    ]
+
+  Optional keys: `:client_name`, `:client_uri` and `request_ttl`.
+
+  ## Login flow
+
+  1. `authorize/2` resolves the handle, pushes the authorization request,
+     and returns the URL to redirect the browser to.
+  2. The user authorizes, their authorization server redirects back to your
+     `redirect_uri`.
+  3. `callback/2` validates the callback params, exchanges the code, and
+     returns a `Latch.Session` for persisting, probably via the same module
+     that implements your `Latch.Store`.
+
+  ## Authenticated requests
+
+  `query/4`, `procedure/4`, and `upload_blob/4` make XRPC calls to a user's
+  PDS, where their data is stored, using DPoP under the hood. The session lives
+  in your datastore, defined through your `Latch.Store` module. Latch uses
+  that to store and rotate access tokens for the client requests.
+
+    Latch.query(MyApp.Latch, "did:plc:abc123", "com.atproto.repo.getRecord",
+      repo: "did:plc:abc123",
+      collection: "app.bsky.feed.post",
+      rkey: "3k2..."
+    )
+
+  ## Errors
+
+  Public functions return `{:error, exception}` tuples and will not normally
+  raise on errors. See `Latch.Error` for more information.
   """
 
   use Supervisor
 
+  alias Latch.ClientMetadata
   alias Latch.Config
   alias Latch.Discovery
   alias Latch.DPoP
+  alias Latch.Error.Discovery, as: DiscoveryError
+  alias Latch.Error.HandleNotFound
+  alias Latch.Error.IdentityMismatch
   alias Latch.Error.InvalidResponse
+  alias Latch.Error.MissingDPoPNonce
+  alias Latch.Error.NoSession
   alias Latch.Error.OAuth
+  alias Latch.Error.RefreshFailed
   alias Latch.Error.SecurityViolation
   alias Latch.Error.Store, as: StoreError
+  alias Latch.Error.Transport
+  alias Latch.Error.XRPC, as: XRPCError
   alias Latch.Flow
   alias Latch.Identity
   alias Latch.PKCE
   alias Latch.Request
   alias Latch.Session
 
+  @type name :: atom() | pid()
+
+  @doc """
+  Starts a Latch supervisor.
+
+  See the module documentation for the supported options.
+  """
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
     config = Config.build!(opts)
@@ -25,6 +97,14 @@ defmodule Latch do
     Supervisor.start_link(__MODULE__, %{name: name, config: config}, name: name)
   end
 
+  @doc """
+  Returns a child specification to start Latch under a supervisor.
+
+  ## Examples
+
+      iex> Latch.child_spec(name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key)
+      %{id: MyApp.Latch, start: {Latch, :start_link, [[name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key]]}, type: :supervisor}
+  """
   def child_spec(opts) do
     name = Keyword.fetch!(opts, :name)
 
@@ -48,10 +128,17 @@ defmodule Latch do
     )
   end
 
+  @doc """
+  Returns the client metadata map.
+
+  Serve it as JSON at the URL configured as `:client_id`, e.g. from a
+  controller: `json(conn, Latch.client_metadata(MyApp.Latch))`.
+  """
+  @spec client_metadata(name()) :: ClientMetadata.t()
   def client_metadata(name) do
     %Config{} = config = config(name)
 
-    Latch.ClientMetadata.build(
+    ClientMetadata.build(
       client_id: config.client_id,
       redirect_uris: [config.redirect_uri],
       scope: config.scope,
@@ -61,6 +148,33 @@ defmodule Latch do
     )
   end
 
+  @doc """
+  Begins an authorization flow for `handle`.
+
+  Resolves the handle to a DID and PDS, discovers the authorization
+  server, pushes the authorization request (PAR), stores the in-flight
+  request in the configured `Latch.Store`, and returns the URL to
+  redirect the browser to.
+
+  The stored request is single-use. `callback/2` consumes it.
+
+  ## Examples
+
+      iex> {:ok, _pid} = Latch.start_link(name: LatchAuthorizeExample, store: Latch.TestStore, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Latch.DPoP.generate_key())
+      iex> Latch.authorize(LatchAuthorizeExample, "not a handle")
+      {:error, %Latch.Error.HandleNotFound{handle: "not a handle", reason: :invalid_handle}}
+  """
+  @spec authorize(name(), String.t()) ::
+          {:ok, String.t()}
+          | {:error,
+             HandleNotFound.t()
+             | IdentityMismatch.t()
+             | DiscoveryError.t()
+             | InvalidResponse.t()
+             | MissingDPoPNonce.t()
+             | OAuth.t()
+             | StoreError.t()
+             | Transport.t()}
   def authorize(name, handle) do
     %Config{} = config = config(name)
 
@@ -96,6 +210,22 @@ defmodule Latch do
     end
   end
 
+  @doc """
+  Completes an authorization flow from the OAuth callback params.
+
+  Consumes the stored request — single use, so a replayed callback fails
+  with `%Latch.Error.SecurityViolation{}` — verifies the issuer, exchanges
+  the code, and returns the established `Latch.Session`.
+  """
+  @spec callback(name(), map()) ::
+          {:ok, Session.t()}
+          | {:error,
+             InvalidResponse.t()
+             | MissingDPoPNonce.t()
+             | OAuth.t()
+             | SecurityViolation.t()
+             | StoreError.t()
+             | Transport.t()}
   def callback(name, %{"state" => state} = params) when is_binary(state) do
     %Config{} = config = config(name)
 
@@ -109,15 +239,82 @@ defmodule Latch do
     {:error, %InvalidResponse{reason: :unexpected_response}}
   end
 
-  def refresh(name, %Session{} = session) do
+  @doc """
+  Query the user's PDS using their DID's session.
+
+  `method` is the XRPC method NSID, eg `"com.atproto.repo.getRecord"`.
+  `params` is passed as the query string.
+
+  Assumes the session exists, that the user of that `did` is authenticated.
+  If not, returns `{:error, %NoSession{}}`.
+
+  ## Examples
+
+      Latch.query(MyApp.Latch, "did:plc:abc123", "com.atproto.repo.getRecord", repo: "did:plc:abc123", collection: "app.bsky.feed.post", rkey: "3k2...")
+  """
+  @spec query(name(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, map()}
+          | {:error,
+             InvalidResponse.t()
+             | MissingDPoPNonce.t()
+             | NoSession.t()
+             | RefreshFailed.t()
+             | StoreError.t()
+             | Transport.t()
+             | XRPCError.t()}
+  def query(name, did, method, params \\ []) do
     %Config{} = config = config(name)
 
-    with {:ok, server} <- Discovery.discover(session.pds_endpoint) do
-      Flow.refresh(config, server, session,
-        client_id: config.client_id,
-        client_jwk: config.signing_key
-      )
-    end
+    Latch.Client.query(config, did, method, params)
+  end
+
+  @doc """
+  Performs a procedure against the user's PDS using their DID's session.
+
+  ## Examples
+
+      Latch.procedure(MyApp.Latch, "did:plc:abc123", "com.atproto.repo.putRecord", %{
+        repo: "did:plc:abc123",
+        collection: "app.bsky.feed.post",
+        rkey: "3k2...",
+        record: %{"$type" => "app.bsky.feed.post", "text" => "Hello!"}
+      })
+  """
+  @spec procedure(name(), String.t(), String.t(), map()) ::
+          {:ok, map()}
+          | {:error,
+             InvalidResponse.t()
+             | MissingDPoPNonce.t()
+             | NoSession.t()
+             | RefreshFailed.t()
+             | StoreError.t()
+             | Transport.t()
+             | XRPCError.t()}
+  def procedure(name, did, method, body) do
+    %Config{} = config = config(name)
+
+    Latch.Client.procedure(config, did, method, body)
+  end
+
+  @doc """
+  Upload a blob to the user's PDS using their DID's session.
+
+  `content_type` is the blob's MIME type, eg `"image/png"`.
+  """
+  @spec upload_blob(name(), String.t(), binary(), String.t()) ::
+          {:ok, map()}
+          | {:error,
+             InvalidResponse.t()
+             | MissingDPoPNonce.t()
+             | NoSession.t()
+             | RefreshFailed.t()
+             | StoreError.t()
+             | Transport.t()
+             | XRPCError.t()}
+  def upload_blob(name, did, bytes, content_type) do
+    %Config{} = config = config(name)
+
+    Latch.Client.upload_blob(config, did, bytes, content_type)
   end
 
   defp complete_callback(

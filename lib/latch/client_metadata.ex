@@ -8,6 +8,8 @@ defmodule Latch.ClientMetadata do
 
   alias Latch.ClientAssertion
 
+  @type t :: map()
+
   @doc """
   Builds the client metadata document as a JSON-serializable map.
 
@@ -19,7 +21,7 @@ defmodule Latch.ClientMetadata do
   - `:client_name` (optional)
   - `:client_uri` (optional) - must share the `client_id` hostname
   """
-  @spec build(keyword()) :: map()
+  @spec build(keyword()) :: t()
   def build(opts) do
     scope = Keyword.fetch!(opts, :scope)
 
