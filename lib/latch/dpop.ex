@@ -12,7 +12,7 @@ defmodule Latch.DPoP do
   @doc """
   Generates a new ES256 (P-256) key pair as a JOSE JWK.
   """
-  @spec generate_key() :: JOSE.JWK.t()
+  @spec generate_key() :: map()
   def generate_key do
     key = JOSE.JWK.generate_key({:ec, @curve})
     {_, map} = JOSE.JWK.to_map(key)
