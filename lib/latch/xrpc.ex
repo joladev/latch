@@ -60,7 +60,7 @@ defmodule Latch.XRPC do
 
   defp request(%Config{} = config, %Session{} = session, http_method, url, body) do
     origin = origin(url)
-    thumbprint = JOSE.JWK.thumbprint(session.dpop_key)
+    thumbprint = DPoP.thumbprint(session.dpop_key)
 
     nonce =
       case Latch.NonceCache.get_nonce(config, thumbprint, origin) do

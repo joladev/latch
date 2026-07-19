@@ -9,6 +9,7 @@ defmodule Latch.Session do
   authenticated XPRC calls go.
   """
 
+  @derive {Inspect, except: [:access_token, :refresh_token, :dpop_key]}
   @enforce_keys [
     :did,
     :access_token,
@@ -25,7 +26,7 @@ defmodule Latch.Session do
           did: String.t(),
           access_token: String.t(),
           refresh_token: String.t(),
-          dpop_key: JOSE.JWK.t(),
+          dpop_key: map(),
           scope: String.t(),
           issuer: String.t(),
           pds_endpoint: String.t(),

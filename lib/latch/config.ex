@@ -23,7 +23,7 @@ defmodule Latch.Config do
           client_id: String.t(),
           redirect_uri: String.t(),
           scope: String.t(),
-          signing_key: JOSE.JWK.t(),
+          signing_key: map(),
           name: atom() | pid(),
           client_name: String.t() | nil,
           client_uri: String.t() | nil,

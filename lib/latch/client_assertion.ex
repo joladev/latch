@@ -33,9 +33,10 @@ defmodule Latch.ClientAssertion do
   `exp` is `iat` + #{@lifetime_seconds}s: atproto does not require it,
   but RFC 7523 does, and servers expect assertions younger than a minute.
   """
+  @spec sign(map(), String.t(), String.t(), keyword()) :: String.t()
+  def sign(key_map, client_id, audience, opts \\ []) do
+    jwk = JOSE.JWK.from(key_map)
 
-  @spec sign(JOSE.JWK.t(), String.t(), String.t(), keyword()) :: String.t()
-  def sign(jwk, client_id, audience, opts \\ []) do
     jti = Keyword.get(opts, :jti, random_b64(20))
     iat = Keyword.get(opts, :iat, System.os_time(:second))
 
@@ -67,8 +68,9 @@ defmodule Latch.ClientAssertion do
   The published client metadata JWKs must use the same value so the
   authorization server can match assertion headers to a key.
   """
-  @spec kid(JOSE.JWK.t()) :: String.t()
-  def kid(jwk) do
+  @spec kid(map()) :: String.t()
+  def kid(key_map) do
+    jwk = JOSE.JWK.from(key_map)
     {_, map} = JOSE.JWK.to_map(jwk)
     Map.get_lazy(map, "kid", fn -> JOSE.JWK.thumbprint(jwk) end)
   end

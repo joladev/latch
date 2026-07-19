@@ -1,6 +1,12 @@
 defmodule Latch.Request do
-  @moduledoc false
+  @moduledoc """
+  An in-flight atproto OAuth authorization request, keyed by `state`.
 
+  Latch stores this via `Latch.Store` at the start of a login
+  (`authorize/2`) and consumes it, single use, in `callback/2`.
+  """
+
+  @derive {Inspect, except: [:dpop_key]}
   @enforce_keys [
     :state,
     :did,
@@ -21,6 +27,6 @@ defmodule Latch.Request do
           issuer: String.t(),
           token_endpoint: String.t(),
           pkce_verifier: String.t(),
-          dpop_key: JOSE.JWK.t()
+          dpop_key: map()
         }
 end

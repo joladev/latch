@@ -14,7 +14,9 @@ defmodule Latch.DPoP do
   """
   @spec generate_key() :: JOSE.JWK.t()
   def generate_key do
-    JOSE.JWK.generate_key({:ec, @curve})
+    key = JOSE.JWK.generate_key({:ec, @curve})
+    {_, map} = JOSE.JWK.to_map(key)
+    map
   end
 
   @doc """
@@ -30,8 +32,10 @@ defmodule Latch.DPoP do
   - `:iat` — override `iat` (tests)
   Note: atproto currently says **do not** include `iss` on PDS-bound proofs.
   """
-  @spec proof(JOSE.JWK.t(), String.t(), String.t(), keyword()) :: String.t()
-  def proof(jwk, method, url, opts \\ []) do
+  @spec proof(map(), String.t(), String.t(), keyword()) :: String.t()
+  def proof(key_map, method, url, opts \\ []) do
+    jwk = JOSE.JWK.from(key_map)
+
     jti = Keyword.get(opts, :jti, random_b64(20))
     iat = Keyword.get(opts, :iat, System.os_time(:second))
     nonce = Keyword.get(opts, :nonce)
@@ -70,22 +74,13 @@ defmodule Latch.DPoP do
   end
 
   @doc """
-  Serializes a JWK to a JSON string for storage and whatnot.
+  RFC 7638 thumbprint of a plain JWK map.
   """
-  @spec dump(JOSE.JWK.t()) :: String.t()
-  def dump(jwk) do
-    {_, map} = JOSE.JWK.to_map(jwk)
-    Jason.encode!(map)
-  end
-
-  @doc """
-  Deserializes a JWK from a JSON string.
-  """
-  @spec load(String.t()) :: JOSE.JWK.t()
-  def load(json) do
-    json
-    |> Jason.decode!()
+  @spec thumbprint(map()) :: String.t()
+  def thumbprint(key_map) do
+    key_map
     |> JOSE.JWK.from()
+    |> JOSE.JWK.thumbprint()
   end
 
   defp htu(url) do

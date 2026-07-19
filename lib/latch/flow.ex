@@ -197,7 +197,7 @@ defmodule Latch.Flow do
 
   defp dpop_request(config, url, build_form, dpop_key) do
     origin = origin(url)
-    thumbprint = JOSE.JWK.thumbprint(dpop_key)
+    thumbprint = DPoP.thumbprint(dpop_key)
 
     nonce =
       case Latch.NonceCache.get_nonce(config, thumbprint, origin) do

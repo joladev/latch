@@ -51,9 +51,10 @@ defmodule Latch.ClientMetadata do
     |> maybe_put("client_uri", client_uri)
   end
 
-  defp public_jwk(jwk) do
+  defp public_jwk(key_map) do
+    jwk = JOSE.JWK.from(key_map)
     {_, public} = JOSE.JWK.to_public_map(jwk)
-    Map.put(public, "kid", ClientAssertion.kid(jwk))
+    Map.put(public, "kid", ClientAssertion.kid(key_map))
   end
 
   defp maybe_put(map, _key, nil), do: map

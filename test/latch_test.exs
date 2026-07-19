@@ -5,6 +5,7 @@ defmodule LatchTest do
 
   alias Latch.Client
   alias Latch.Discovery
+  alias Latch.DPoP
   alias Latch.Flow
   alias Latch.Identity
   alias Latch.Request
@@ -44,7 +45,7 @@ defmodule LatchTest do
         assert opts[:login_hint] == @handle
         assert is_binary(opts[:state])
         assert is_binary(opts[:code_challenge])
-        assert %JOSE.JWK{} = opts[:dpop_key]
+        assert %{} = opts[:dpop_key]
 
         {:ok, request_uri}
       end)
@@ -72,7 +73,7 @@ defmodule LatchTest do
       assert request.issuer == @issuer
       assert request.token_endpoint == @issuer <> "/oauth/token"
       assert is_binary(request.pkce_verifier)
-      assert %JOSE.JWK{} = request.dpop_key
+      assert %{} = request.dpop_key
     end
   end
 
@@ -80,7 +81,7 @@ defmodule LatchTest do
     test "consumes the request, verifies the issuer, and exchanges the authorization code" do
       state = "state-123"
       code = "authorization-code"
-      dpop_key = JOSE.JWK.generate_key({:ec, "P-256"})
+      dpop_key = DPoP.generate_key()
 
       pid =
         start_latch(

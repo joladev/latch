@@ -2,6 +2,7 @@ defmodule Latch.FlowTest do
   use ExUnit.Case, async: true
   use Mimic
 
+  alias Latch.DPoP
   alias Latch.Error.SecurityViolation
   alias Latch.Flow
   alias Latch.HTTP
@@ -27,8 +28,8 @@ defmodule Latch.FlowTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      client_jwk = JOSE.JWK.generate_key({:ec, "P-256"})
-      dpop_key = JOSE.JWK.generate_key({:ec, "P-256"})
+      client_jwk = DPoP.generate_key()
+      dpop_key = DPoP.generate_key()
 
       expect(HTTP, :post_form, fn url, form, headers ->
         assert url == "https://issuer.example.com/oauth/token"
@@ -80,8 +81,8 @@ defmodule Latch.FlowTest do
 
   describe "par/2" do
     test "creates a pushed authorization request" do
-      client_jwk = JOSE.JWK.generate_key({:ec, "P-256"})
-      dpop_key = JOSE.JWK.generate_key({:ec, "P-256"})
+      client_jwk = DPoP.generate_key()
+      dpop_key = DPoP.generate_key()
 
       config = %Latch.Config{
         store: Latch.TestStore,
