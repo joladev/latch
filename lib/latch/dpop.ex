@@ -87,6 +87,7 @@ defmodule Latch.DPoP do
     url
     |> URI.parse()
     |> Map.put(:query, nil)
+    |> Map.put(:fragment, nil)
     |> URI.to_string()
   end
 
