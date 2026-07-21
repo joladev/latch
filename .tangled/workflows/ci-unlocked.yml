@@ -17,6 +17,8 @@ steps:
       mix deps.get
   - name: unlock
     command: mix deps.unlock --all
+  - name: install
+    command: mix deps.get
   - name: compile
     command: mix compile --warnings-as-errors
   - name: test
