@@ -29,7 +29,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: nil
+          signing_key: ~s({"kty":"EC"})
         )
 
       identity = %Identity{did: @did, handle: @handle, pds_endpoint: @pds}
@@ -89,7 +89,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: nil
+          signing_key: ~s({"kty":"EC"})
         )
 
       request = %Request{
@@ -150,7 +150,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: nil
+          signing_key: ~s({"kty":"EC"})
         )
 
       expect(Client, :query, fn _config, @did, "app.bsky.actor.getProfile", actor: @did ->
@@ -170,7 +170,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: nil
+          signing_key: ~s({"kty":"EC"})
         )
 
       body = %{
@@ -196,7 +196,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: nil
+          signing_key: ~s({"kty":"EC"})
         )
 
       expect(Client, :upload_blob, fn _config, @did, <<1, 2, 3>>, "image/png" ->

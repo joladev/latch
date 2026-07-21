@@ -7,7 +7,7 @@ defmodule Latch.ConfigTest do
   @client_id "client_id"
   @redirect_uri "redirect_uri"
   @scope "atproto something"
-  @signing_key "signing_key"
+  @signing_key ~s({"kty":"EC"})
   @name :name
   @client_name "client_name"
   @client_uri "client_uri"
@@ -20,7 +20,7 @@ defmodule Latch.ConfigTest do
       assert config.client_id == @client_id
       assert config.redirect_uri == @redirect_uri
       assert config.scope == @scope
-      assert config.signing_key == @signing_key
+      assert config.signing_key == Jason.decode!(@signing_key)
       assert config.name == @name
       assert config.client_name == @client_name
       assert config.client_uri == @client_uri

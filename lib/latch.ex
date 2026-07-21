@@ -25,7 +25,7 @@ defmodule Latch do
         client_id: "https://myapp.example/oauth-client-metadata.json",
         redirect_uri: "https://myapp.example/auth/callback",
         scope: "atproto",
-        signing_key: MyApp.Credentials.signing_key()}
+        signing_key: "key"}
     ]
 
   Optional keys: `:client_name`, `:client_uri` and `request_ttl`.
@@ -161,7 +161,7 @@ defmodule Latch do
 
   ## Examples
 
-      iex> {:ok, _pid} = Latch.start_link(name: LatchAuthorizeExample, store: Latch.TestStore, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Latch.DPoP.generate_key())
+      iex> {:ok, _pid} = Latch.start_link(name: LatchAuthorizeExample, store: Latch.TestStore, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
       iex> Latch.authorize(LatchAuthorizeExample, "not a handle")
       {:error, %Latch.Error.HandleNotFound{handle: "not a handle", reason: :invalid_handle}}
   """

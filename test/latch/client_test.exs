@@ -137,7 +137,7 @@ defmodule Latch.ClientTest do
       client_id: @client_id,
       redirect_uri: @redirect_uri,
       scope: "atproto",
-      signing_key: nil,
+      signing_key: ~s({"kty":"EC"}),
       name: :name
     }
   end

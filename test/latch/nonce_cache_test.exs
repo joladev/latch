@@ -80,7 +80,7 @@ defmodule Latch.NonceCacheTest do
       client_id: "client-id",
       redirect_uri: "redirect-uri",
       scope: "atproto",
-      signing_key: nil,
+      signing_key: ~s({"kty":"EC"}),
       name: name
     }
   end

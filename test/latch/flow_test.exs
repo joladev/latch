@@ -20,7 +20,7 @@ defmodule Latch.FlowTest do
         client_id: "https://client.example.com/oauth-client-metadata.json",
         redirect_uri: "https://client.example.com/oauth/callback",
         scope: "atproto",
-        signing_key: nil,
+        signing_key: ~s({"kty":"EC"}),
         name: :"flow_test_#{inspect(self())}"
       }
 
@@ -89,7 +89,7 @@ defmodule Latch.FlowTest do
         client_id: "https://client.example.com/oauth-client-metadata.json",
         redirect_uri: "https://client.example.com/oauth/callback",
         scope: "atproto",
-        signing_key: nil,
+        signing_key: ~s({"kty":"EC"}),
         name: :"flow_test_#{inspect(self())}"
       }
 
@@ -144,7 +144,7 @@ defmodule Latch.FlowTest do
         client_id: "https://client.example.com/oauth-client-metadata.json",
         redirect_uri: "https://client.example.com/oauth/callback",
         scope: "atproto",
-        signing_key: nil,
+        signing_key: ~s({"kty":"EC"}),
         name: :"flow_test_#{inspect(self())}"
       }
 

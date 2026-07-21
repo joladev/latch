@@ -4,9 +4,9 @@ defmodule Latch.Session do
   make authenticated PDS requests and to refresh the access token.
 
   The `dpop_key` is the per-session private key every request is signed with.
-  The access and refresh tokens are bound to it. `issue` identifies the
+  The access and refresh tokens are bound to it. `issuer` identifies the
   authorization server (for refresh and re-discovery), `pds_endpoint` is where
-  authenticated XPRC calls go.
+  authenticated XRPC calls go.
   """
 
   @derive {Inspect, except: [:access_token, :refresh_token, :dpop_key]}

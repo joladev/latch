@@ -22,7 +22,7 @@ defmodule Latch.ClientAssertion do
   Signs a client assertion JWT.
 
   ## Arguments
-  - `jwk` - the client's private JOSE JWK
+  - `jwk` - the client's private JOSE JWK map
   - `client_id` - used as both `iss` and `sub`
   - `audience` - the authorization server's `issuer` URL
 

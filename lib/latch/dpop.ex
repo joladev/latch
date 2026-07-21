@@ -10,7 +10,7 @@ defmodule Latch.DPoP do
   @jwt_type "dpop+jwt"
 
   @doc """
-  Generates a new ES256 (P-256) key pair as a JOSE JWK.
+  Generates a new ES256 (P-256) key pair as a JOSE JWK map.
   """
   @spec generate_key() :: map()
   def generate_key do
@@ -22,7 +22,7 @@ defmodule Latch.DPoP do
   @doc """
   Signs a DPoP proof JWT for an HTTP request.
   ## Arguments
-  - `jwk` — private JOSE JWK for this OAuth session
+  - `jwk` — private JOSE JWK map for this OAuth session
   - `method` — HTTP method (e.g. `"POST"`)
   - `url` — request URL; query string is stripped for `htu` per atproto
   ## Options
