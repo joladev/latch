@@ -9,7 +9,10 @@ defmodule Latch.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
-      elixirc_paths: elixirc_paths(Mix.env())
+      elixirc_paths: elixirc_paths(Mix.env()),
+      description: "atproto OAuth client library for Elixir",
+      package: package(),
+      docs: docs()
     ]
   end
 
@@ -38,7 +41,8 @@ defmodule Latch.MixProject do
       {:jason, "~> 1.2"},
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:mimic, "~> 2.3", only: :test},
-      {:nimble_options, "~> 1.1"}
+      {:nimble_options, "~> 1.1"},
+      {:ex_doc, "~> 0.34", only: :dev}
     ]
   end
 
@@ -51,6 +55,24 @@ defmodule Latch.MixProject do
         "test --warnings-as-errors",
         "credo --strict"
       ]
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{
+        "Tangled" => "https://tangled.org/jola.dev/latch/",
+        "GitHub" => "https://github.com/joladev/latch"
+      },
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE)
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: ["README.md"]
     ]
   end
 end
