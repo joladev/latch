@@ -9,6 +9,7 @@ defmodule Latch.Error.Discovery do
     * `:issuer_mismatch` - the AS metadata issuer is not the discovered URL
     * `{:missing_metadata field}` - a required AS metadata field is missing
     * `{:invalid_metadata, field}` - a required AS metadata field has invalid value
+    * `:insecure_scheme` - a PDS or authorization server URL used HTTP instead of HTTPS
   """
 
   defexception [:pds_endpoint, :reason]

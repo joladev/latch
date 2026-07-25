@@ -29,14 +29,15 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: ~s({"kty":"EC"})
+          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          mode: :confidential
         )
 
       identity = %Identity{did: @did, handle: @handle, pds_endpoint: @pds}
       server = server()
 
       expect(Identity, :resolve_handle, fn @handle -> {:ok, identity} end)
-      expect(Discovery, :discover, fn @pds -> {:ok, server} end)
+      expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn config, ^server, opts ->
         assert opts[:client_id] == config.client_id
@@ -89,7 +90,8 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: ~s({"kty":"EC"})
+          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          mode: :confidential
         )
 
       request = %Request{
@@ -150,7 +152,8 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: ~s({"kty":"EC"})
+          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          mode: :confidential
         )
 
       expect(Client, :query, fn _config, @did, "app.bsky.actor.getProfile", actor: @did ->
@@ -170,7 +173,8 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: ~s({"kty":"EC"})
+          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          mode: :confidential
         )
 
       body = %{
@@ -196,7 +200,8 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: ~s({"kty":"EC"})
+          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          mode: :confidential
         )
 
       expect(Client, :upload_blob, fn _config, @did, <<1, 2, 3>>, "image/png" ->
@@ -204,6 +209,87 @@ defmodule LatchTest do
       end)
 
       assert {:ok, %{"blob" => _}} = Latch.upload_blob(pid, @did, <<1, 2, 3>>, "image/png")
+    end
+  end
+
+  describe "client_metadata/1" do
+    test "confidential" do
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id: @client_id,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          mode: :confidential
+        )
+
+      assert %{
+               "application_type" => "web",
+               "client_id" => "https://client.example.com/oauth-client-metadata.json",
+               "dpop_bound_access_tokens" => true,
+               "grant_types" => ["authorization_code", "refresh_token"],
+               "jwks" => %{
+                 "keys" => [
+                   %{
+                     "crv" => _,
+                     "kid" => _,
+                     "kty" => _,
+                     "x" => _,
+                     "y" => _
+                   }
+                 ]
+               },
+               "redirect_uris" => ["https://client.example.com/oauth/callback"],
+               "response_types" => ["code"],
+               "scope" => "atproto",
+               "token_endpoint_auth_method" => "private_key_jwt",
+               "token_endpoint_auth_signing_alg" => "ES256"
+             } = Latch.client_metadata(pid)
+    end
+
+    test "public" do
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id: @client_id,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          mode: :public
+        )
+
+      assert %{
+               "application_type" => "web",
+               "client_id" => "https://client.example.com/oauth-client-metadata.json",
+               "dpop_bound_access_tokens" => true,
+               "grant_types" => ["authorization_code", "refresh_token"],
+               "redirect_uris" => ["https://client.example.com/oauth/callback"],
+               "response_types" => ["code"],
+               "scope" => "atproto",
+               "token_endpoint_auth_method" => "none"
+             } = Latch.client_metadata(pid)
+    end
+
+    test "localhost" do
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          redirect_uri: @redirect_uri,
+          scope: "atproto",
+          mode: :localhost
+        )
+
+      assert %{
+               "application_type" => "native",
+               "client_id" =>
+                 "http://localhost?redirect_uri=https%3A%2F%2Fclient.example.com%2Foauth%2Fcallback&scope=atproto",
+               "dpop_bound_access_tokens" => true,
+               "grant_types" => ["authorization_code", "refresh_token"],
+               "redirect_uris" => ["https://client.example.com/oauth/callback"],
+               "response_types" => ["code"],
+               "scope" => "atproto",
+               "token_endpoint_auth_method" => "none"
+             } = Latch.client_metadata(pid)
     end
   end
 

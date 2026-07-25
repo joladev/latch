@@ -25,7 +25,8 @@ defmodule Latch do
         client_id: "https://myapp.example/oauth-client-metadata.json",
         redirect_uri: "https://myapp.example/auth/callback",
         scope: "atproto",
-        signing_key: "key"}
+        signing_key: "key"},
+        mode: :confidential
     ]
 
   Optional keys: `:client_name`, `:client_uri` and `request_ttl`.
@@ -90,6 +91,10 @@ defmodule Latch do
   Starts a Latch supervisor.
 
   See the module documentation for the supported options.
+
+  ## Examples
+
+      iex> {:ok, _pid} = Latch.start_link(name: LatchStartLinkExample, store: Latch.TestStore, mode: :confidential, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
   """
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -103,8 +108,8 @@ defmodule Latch do
 
   ## Examples
 
-      iex> Latch.child_spec(name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key)
-      %{id: MyApp.Latch, start: {Latch, :start_link, [[name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key]]}, type: :supervisor}
+      iex> Latch.child_spec(name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key, mode: :confidential)
+      %{id: MyApp.Latch, start: {Latch, :start_link, [[name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key, mode: :confidential]]}, type: :supervisor}
   """
   def child_spec(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -145,7 +150,8 @@ defmodule Latch do
       scope: config.scope,
       jwk: config.signing_key,
       client_name: config.client_name,
-      client_uri: config.client_uri
+      client_uri: config.client_uri,
+      mode: config.mode
     )
   end
 
@@ -161,7 +167,7 @@ defmodule Latch do
 
   ## Examples
 
-      iex> {:ok, _pid} = Latch.start_link(name: LatchAuthorizeExample, store: Latch.TestStore, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
+      iex> {:ok, _pid} = Latch.start_link(mode: :confidential, name: LatchAuthorizeExample, store: Latch.TestStore, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
       iex> Latch.authorize(LatchAuthorizeExample, "not a handle")
       {:error, %Latch.Error.HandleNotFound{handle: "not a handle", reason: :invalid_handle}}
   """
@@ -184,7 +190,8 @@ defmodule Latch do
     state = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
     with {:ok, identity} <- Identity.resolve_handle(handle),
-         {:ok, server} <- Discovery.discover(identity.pds_endpoint),
+         {:ok, server} <-
+           Discovery.discover(identity.pds_endpoint, allow_http: Config.localhost?(config)),
          {:ok, request_uri} <-
            Flow.par(config, server,
              client_id: config.client_id,

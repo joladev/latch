@@ -19,13 +19,19 @@ defmodule Latch.Discovery do
 
   @doc """
   Resolves a PDS endpoint to its authorization server metadata.
+
+  ## Options
+  - `:allow_http` - in localhost mode we don't have to force https
   """
-  @spec discover(String.t()) ::
+  @spec discover(String.t(), keyword()) ::
           {:ok, ServerMetadata.t()}
           | {:error, DiscoveryError.t() | Transport.t()}
-  def discover(pds_endpoint) when is_binary(pds_endpoint) do
-    with {:ok, resource} <- HTTP.get_json(pds_endpoint <> @protected_resource_path),
-         {:ok, issuer} <- authorization_server(resource, pds_endpoint),
+  def discover(pds_endpoint, opts \\ []) when is_binary(pds_endpoint) do
+    allow_http = Keyword.get(opts, :allow_http, false)
+
+    with :ok <- require_https(pds_endpoint, allow_http),
+         {:ok, resource} <- HTTP.get_json(pds_endpoint <> @protected_resource_path),
+         {:ok, issuer} <- authorization_server(resource, pds_endpoint, allow_http),
          {:ok, metadata} <- HTTP.get_json(issuer <> @auth_server_path),
          {:ok, server} <- parse_server_metadata(metadata, pds_endpoint),
          :ok <- verify_issuer(server, issuer, pds_endpoint) do
@@ -33,12 +39,12 @@ defmodule Latch.Discovery do
     end
   end
 
-  defp authorization_server(resource, pds_endpoint) do
+  defp authorization_server(resource, pds_endpoint, allow_http) do
     with :ok <- verify_resource(resource, pds_endpoint) do
       case Map.get(resource, "authorization_servers") do
         # There has to be exactly one issuer according to the spec.
         [issuer] when is_binary(issuer) ->
-          validate_authorization_server(issuer, pds_endpoint)
+          validate_authorization_server(issuer, pds_endpoint, allow_http)
 
         _ ->
           {:error,
@@ -50,18 +56,19 @@ defmodule Latch.Discovery do
     end
   end
 
-  defp validate_authorization_server(issuer, pds_endpoint) do
+  defp validate_authorization_server(issuer, pds_endpoint, allow_http) do
     case URI.parse(issuer) do
       %URI{
-        scheme: scheme,
         host: host,
         path: nil,
         query: nil,
         fragment: nil,
         userinfo: nil
       }
-      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
-        {:ok, issuer}
+      when is_binary(host) and host != "" ->
+        with :ok <- require_https(issuer, allow_http) do
+          {:ok, issuer}
+        end
 
       _ ->
         {:error,
@@ -69,6 +76,14 @@ defmodule Latch.Discovery do
            pds_endpoint: pds_endpoint,
            reason: :invalid_authorization_server
          }}
+    end
+  end
+
+  defp require_https(url, allow_http) do
+    case URI.parse(url) do
+      %URI{scheme: "https"} -> :ok
+      %URI{scheme: "http"} when allow_http -> :ok
+      _ -> {:error, %DiscoveryError{reason: :insecure_scheme}}
     end
   end
 

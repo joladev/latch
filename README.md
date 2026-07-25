@@ -25,8 +25,10 @@ be found at <https://hexdocs.pm/latch>.
 
 - [x] Confidential client
 - [x] DPoP nonce caching
-- [ ] Public client
-- [ ] Local client
+- [x] Public client
+- [x] Local client
+- [ ] Built-in ETS LatchStore implementation
+- [ ] Getting started guide
 - [ ] Extensive tests
 
 ## Specification references

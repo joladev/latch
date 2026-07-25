@@ -14,15 +14,7 @@ defmodule Latch.FlowTest do
       did = "did:plc:bvraa6gajy4tfr3eh2sisdkr"
       access_token = "access-token"
       refresh_token = "refresh-token"
-
-      config = %Latch.Config{
-        store: Latch.TestStore,
-        client_id: "https://client.example.com/oauth-client-metadata.json",
-        redirect_uri: "https://client.example.com/oauth/callback",
-        scope: "atproto",
-        signing_key: ~s({"kty":"EC"}),
-        name: :"flow_test_#{inspect(self())}"
-      }
+      config = make_config()
 
       start_link_supervised!(
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
@@ -81,29 +73,14 @@ defmodule Latch.FlowTest do
 
   describe "par/2" do
     test "creates a pushed authorization request" do
-      client_jwk = DPoP.generate_key()
       dpop_key = DPoP.generate_key()
-
-      config = %Latch.Config{
-        store: Latch.TestStore,
-        client_id: "https://client.example.com/oauth-client-metadata.json",
-        redirect_uri: "https://client.example.com/oauth/callback",
-        scope: "atproto",
-        signing_key: ~s({"kty":"EC"}),
-        name: :"flow_test_#{inspect(self())}"
-      }
+      config = make_config()
 
       start_link_supervised!(
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      server = %ServerMetadata{
-        issuer: "https://issuer.example.com",
-        authorization_endpoint: "https://issuer.example.com/oauth/authorize",
-        token_endpoint: "https://issuer.example.com/oauth/token",
-        par_endpoint: "https://issuer.example.com/oauth/par",
-        scopes_supported: ["atproto"]
-      }
+      server = make_server_metadata()
 
       expect(HTTP, :post_form, fn url, form, headers ->
         assert url == "https://issuer.example.com/oauth/par"
@@ -124,7 +101,6 @@ defmodule Latch.FlowTest do
       assert {:ok, "urn:ietf:params:oauth:request_uri:request"} =
                Flow.par(config, server,
                  client_id: "https://client.example.com/oauth-client-metadata.json",
-                 client_jwk: client_jwk,
                  redirect_uri: "https://client.example.com/oauth/callback",
                  scope: "atproto",
                  state: "state",
@@ -133,20 +109,88 @@ defmodule Latch.FlowTest do
                  login_hint: "alice.example.com"
                )
     end
+
+    test "public client omits client_assertion" do
+      dpop_key = DPoP.generate_key()
+      config = make_config(mode: :public)
+
+      start_link_supervised!(
+        {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
+      )
+
+      server = make_server_metadata()
+
+      expect(HTTP, :post_form, fn url, form, _headers ->
+        assert url == server.par_endpoint
+        refute Keyword.has_key?(form, :client_assertion)
+        refute Keyword.has_key?(form, :client_assertion_type)
+
+        {:ok,
+         %{
+           status: 201,
+           headers: %{},
+           body: ~s({"request_uri":"urn:ietf:params:oauth:request_uri:request"})
+         }}
+      end)
+
+      assert {:ok, "urn:ietf:params:oauth:request_uri:request"} =
+               Flow.par(config, server,
+                 client_id: "https://client.example.com/oauth-client-metadata.json",
+                 redirect_uri: "https://client.example.com/oauth/callback",
+                 scope: "atproto",
+                 state: "state",
+                 code_challenge: "pkce-challenge",
+                 dpop_key: dpop_key
+               )
+    end
+
+    test "localhost client omits client_assertion" do
+      dpop_key = DPoP.generate_key()
+
+      redirect_uri = "http://127.0.0.1/callback"
+
+      config =
+        make_config(
+          mode: :localhost,
+          client_id:
+            "http://localhost?redirect_uri=#{URI.encode_www_form(redirect_uri)}&scope=atproto"
+        )
+
+      start_link_supervised!(
+        {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
+      )
+
+      server = make_server_metadata()
+
+      expect(HTTP, :post_form, fn url, form, _headers ->
+        assert url == server.par_endpoint
+        refute Keyword.has_key?(form, :client_assertion)
+        refute Keyword.has_key?(form, :client_assertion_type)
+
+        {:ok,
+         %{
+           status: 201,
+           headers: %{},
+           body: ~s({"request_uri":"urn:ietf:params:oauth:request_uri:request"})
+         }}
+      end)
+
+      assert {:ok, "urn:ietf:params:oauth:request_uri:request"} =
+               Flow.par(config, server,
+                 client_id: "https://client.example.com/oauth-client-metadata.json",
+                 redirect_uri: "https://client.example.com/oauth/callback",
+                 scope: "atproto",
+                 state: "state",
+                 code_challenge: "pkce-challenge",
+                 dpop_key: dpop_key
+               )
+    end
   end
 
   describe "refresh/3" do
     test "rejects a refresh when discovery returns a different issuer" do
       reject(HTTP, :post_form, 3)
-
-      config = %Latch.Config{
-        store: Latch.TestStore,
-        client_id: "https://client.example.com/oauth-client-metadata.json",
-        redirect_uri: "https://client.example.com/oauth/callback",
-        scope: "atproto",
-        signing_key: ~s({"kty":"EC"}),
-        name: :"flow_test_#{inspect(self())}"
-      }
+      config = make_config()
 
       start_link_supervised!(
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
@@ -177,5 +221,30 @@ defmodule Latch.FlowTest do
                  client_jwk: nil
                )
     end
+  end
+
+  defp make_config(overrides \\ []) do
+    defaults = [
+      store: Latch.TestStore,
+      client_id: "https://client.example.com/oauth-client-metadata.json",
+      redirect_uri: "https://client.example.com/oauth/callback",
+      scope: "atproto",
+      signing_key: Jason.decode!(Jason.encode!(Latch.DPoP.generate_key())),
+      name: :"flow_test_#{inspect(self())}",
+      mode: :confidential
+    ]
+
+    attrs = Keyword.merge(defaults, overrides)
+    struct!(Latch.Config, attrs)
+  end
+
+  defp make_server_metadata do
+    %ServerMetadata{
+      issuer: "https://issuer.example.com",
+      authorization_endpoint: "https://issuer.example.com/oauth/authorize",
+      token_endpoint: "https://issuer.example.com/oauth/token",
+      par_endpoint: "https://issuer.example.com/oauth/par",
+      scopes_supported: ["atproto"]
+    }
   end
 end

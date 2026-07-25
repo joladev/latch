@@ -38,9 +38,48 @@ defmodule Latch.ConfigTest do
         Config.build!(opts(doesntexist: "string"))
       end
     end
+
+    test "localhost mode rejects :client_id" do
+      assert_raise NimbleOptions.ValidationError,
+                   fn ->
+                     [mode: :localhost, client_id: "https://prod.example/metadata.json"]
+                     |> opts()
+                     |> Keyword.delete(:signing_key)
+                     |> Config.build!()
+                   end
+    end
+
+    test "confidential mode requires :signing_key" do
+      assert_raise NimbleOptions.ValidationError,
+                   fn ->
+                     opts()
+                     |> Keyword.delete(:signing_key)
+                     |> Config.build!()
+                   end
+    end
+
+    test "public mode rejects :signing_key" do
+      assert_raise NimbleOptions.ValidationError,
+                   fn ->
+                     [mode: :public]
+                     |> opts()
+                     |> Config.build!()
+                   end
+    end
+
+    test "localhost mode rejects :signing_key" do
+      assert_raise NimbleOptions.ValidationError,
+                   ~r/invalid value for :signing_key option, not allowed when mode is :localhost/,
+                   fn ->
+                     [mode: :localhost]
+                     |> opts()
+                     |> Keyword.delete(:client_id)
+                     |> Config.build!()
+                   end
+    end
   end
 
-  defp opts(overrides) do
+  defp opts(overrides \\ []) do
     Keyword.merge(
       [
         store: @store,
@@ -50,7 +89,8 @@ defmodule Latch.ConfigTest do
         signing_key: @signing_key,
         name: @name,
         client_name: @client_name,
-        client_uri: @client_uri
+        client_uri: @client_uri,
+        mode: :confidential
       ],
       overrides
     )

@@ -27,7 +27,7 @@ defmodule Latch.Flow do
   Performs a pushed authorization request, returning the `request_uri`.
 
   ## Required options
-  - `:client_id`, `:client_jwk` - the confidential client's id and signing key
+  - `:client_id`, the client's id
   - `:redirect_uri`, `:scope`, `:state`, `:code_challenge` - auth params
   - `:dpop_key` - the per-session DPoP key
 
@@ -40,7 +40,6 @@ defmodule Latch.Flow do
           | {:error, InvalidResponse.t() | MissingDPoPNonce.t() | OAuth.t() | Transport.t()}
   def par(%Config{} = config, %ServerMetadata{} = server, opts) do
     client_id = Keyword.fetch!(opts, :client_id)
-    client_jwk = Keyword.fetch!(opts, :client_jwk)
     redirect_uri = Keyword.fetch!(opts, :redirect_uri)
     scope = Keyword.fetch!(opts, :scope)
     state = Keyword.fetch!(opts, :state)
@@ -57,10 +56,8 @@ defmodule Latch.Flow do
           scope: scope,
           state: state,
           code_challenge: code_challenge,
-          code_challenge_method: "S256",
-          client_assertion_type: ClientAssertion.assertion_type(),
-          client_assertion: ClientAssertion.sign(client_jwk, client_id, server.issuer)
-        ],
+          code_challenge_method: "S256"
+        ] ++ client_assertion(config, client_id, server.issuer),
         :login_hint,
         login_hint
       )
@@ -112,7 +109,6 @@ defmodule Latch.Flow do
              | Transport.t()}
   def exchange_code(%Config{} = config, opts) do
     client_id = Keyword.fetch!(opts, :client_id)
-    client_jwk = Keyword.fetch!(opts, :client_jwk)
     redirect_uri = Keyword.fetch!(opts, :redirect_uri)
     code = Keyword.fetch!(opts, :code)
     code_verifier = Keyword.fetch!(opts, :code_verifier)
@@ -129,10 +125,8 @@ defmodule Latch.Flow do
         code: code,
         redirect_uri: redirect_uri,
         code_verifier: code_verifier,
-        client_id: client_id,
-        client_assertion_type: ClientAssertion.assertion_type(),
-        client_assertion: ClientAssertion.sign(client_jwk, client_id, issuer)
-      ]
+        client_id: client_id
+      ] ++ client_assertion(config, client_id, issuer)
     end
 
     with {:ok, body} <- dpop_request(config, token_endpoint, build_form, dpop_key),
@@ -166,17 +160,14 @@ defmodule Latch.Flow do
              | Transport.t()}
   def refresh(config, %ServerMetadata{} = server, %Session{} = session, opts) do
     client_id = Keyword.fetch!(opts, :client_id)
-    client_jwk = Keyword.fetch!(opts, :client_jwk)
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
 
     build_form = fn ->
       [
         grant_type: "refresh_token",
         refresh_token: session.refresh_token,
-        client_id: client_id,
-        client_assertion_type: ClientAssertion.assertion_type(),
-        client_assertion: ClientAssertion.sign(client_jwk, client_id, server.issuer)
-      ]
+        client_id: client_id
+      ] ++ client_assertion(config, client_id, server.issuer)
     end
 
     with :ok <- verify_refresh_issuer(server.issuer, session.issuer),
@@ -318,5 +309,16 @@ defmodule Latch.Flow do
       pds_endpoint: pds_endpoint,
       expires_at: DateTime.add(now, tokens.expires_in, :second)
     }
+  end
+
+  defp client_assertion(config, client_id, issuer) do
+    if Config.confidential?(config) do
+      [
+        client_assertion_type: ClientAssertion.assertion_type(),
+        client_assertion: ClientAssertion.sign(config.signing_key, client_id, issuer)
+      ]
+    else
+      []
+    end
   end
 end

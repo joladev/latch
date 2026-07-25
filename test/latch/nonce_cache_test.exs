@@ -81,7 +81,8 @@ defmodule Latch.NonceCacheTest do
       redirect_uri: "redirect-uri",
       scope: "atproto",
       signing_key: ~s({"kty":"EC"}),
-      name: name
+      name: name,
+      mode: :confidential
     }
   end
 end

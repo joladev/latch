@@ -26,7 +26,7 @@ defmodule Latch.ClientTest do
 
       :ok = Latch.TestStore.put_session(@did, stale_session)
 
-      expect(Discovery, :discover, fn @pds -> {:ok, server} end)
+      expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :refresh, fn _config, ^server, ^stale_session, opts ->
         assert opts[:client_id] == config.client_id
@@ -63,7 +63,7 @@ defmodule Latch.ClientTest do
           {:ok, %{"did" => @did}}
       end)
 
-      expect(Discovery, :discover, fn @pds -> {:ok, server} end)
+      expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :refresh, fn _config, ^server, ^stale_session, _opts ->
         {:ok, refreshed_session}
@@ -138,7 +138,8 @@ defmodule Latch.ClientTest do
       redirect_uri: @redirect_uri,
       scope: "atproto",
       signing_key: ~s({"kty":"EC"}),
-      name: :name
+      name: :name,
+      mode: :confidential
     }
   end
 end
