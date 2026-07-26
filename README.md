@@ -2,6 +2,16 @@
 
 atproto OAuth and client library attempting to follow the specification strictly, while also following Elixir library guidelines. The goal is for the library to be easy to use and not get in your way, but fully flexible. Use it to build atproto based apps where users can log in with their atproto accounts, from existing services like Bluesky, Blacksky or Eurosky.
 
+## Installation
+
+```elixir
+def deps do
+  [
+    {:latch, "~> 0.2.0"}
+  ]
+end
+```
+
 <!-- MDOC !-->
 
 ## Get started
@@ -87,23 +97,6 @@ Public functions return `{:error, exception}` tuples and will not normally
 raise on errors. See `Latch.Error` for more information.
 
 <!-- MDOC !-->
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `latch` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:latch, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/latch>.
 
 ## Roadmap
 
