@@ -18,10 +18,17 @@ atproto OAuth and client library attempting to follow the specification strictly
 
 ### Setting it up
 
+Using the built-in ETS `Store` implementation, create your module like:
+
+    defmodule MyApp.LatchStore do
+      use Latch.Store.ETS
+    end
+
 Add `Latch` to your supervision tree, giving it a unique name
 and a `Latch.Store` implementation:
 
     children = [
+      {MyApp.LatchStore, []},
       {Latch,
         name: MyApp.Latch,
         mode: :confidential,
@@ -32,9 +39,9 @@ and a `Latch.Store` implementation:
         signing_key: System.fetch_env!("ATPROTO_CLIENT_PRIVATE_JWK")}
     ]
 
-`signing_key` is the JWK from step 2 above. Optional keys: `:client_name`, `:client_uri` and `request_ttl`.
+`signing_key` is the JWK from step 2 above. Optional keys: `:client_name`, `:client_uri` and `request_ttl`. Instead of using the built-in ETS Store implementation you can create your own, implementing the `Latch.Store` behavior.
 
-Set up a route to serve the client metadata.
+You need to set up a route to serve the client metadata.
 
     def client_metadata(conn, _params) do
       json(conn, Latch.client_metadata(MyApp.Latch))
@@ -104,7 +111,7 @@ be found at <https://hexdocs.pm/latch>.
 - [x] DPoP nonce caching
 - [x] Public client
 - [x] Local client
-- [ ] Built-in ETS LatchStore implementation
+- [x] Built-in ETS LatchStore implementation
 - [ ] Getting started guide
 - [ ] Extensive tests
 

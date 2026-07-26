@@ -29,7 +29,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          signing_key: Jason.encode!(DPoP.generate_key()),
           mode: :confidential
         )
 
@@ -90,7 +90,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          signing_key: Jason.encode!(DPoP.generate_key()),
           mode: :confidential
         )
 
@@ -152,7 +152,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          signing_key: Jason.encode!(DPoP.generate_key()),
           mode: :confidential
         )
 
@@ -173,7 +173,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          signing_key: Jason.encode!(DPoP.generate_key()),
           mode: :confidential
         )
 
@@ -200,7 +200,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          signing_key: Jason.encode!(DPoP.generate_key()),
           mode: :confidential
         )
 
@@ -220,7 +220,7 @@ defmodule LatchTest do
           client_id: @client_id,
           redirect_uri: @redirect_uri,
           scope: "atproto",
-          signing_key: Jason.encode!(Latch.DPoP.generate_key()),
+          signing_key: Jason.encode!(DPoP.generate_key()),
           mode: :confidential
         )
 

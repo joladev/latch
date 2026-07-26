@@ -38,7 +38,7 @@ defmodule Latch.Config do
           name: atom() | pid(),
           client_name: String.t() | nil,
           client_uri: String.t() | nil,
-          request_ttl: pos_integer()
+          request_ttl: non_neg_integer()
         }
 
   @modes [:confidential, :public, :localhost]
@@ -52,7 +52,7 @@ defmodule Latch.Config do
     name: [type: {:or, [:atom, :pid]}, required: true],
     client_name: [type: :string, required: false],
     client_uri: [type: :string, required: false],
-    request_ttl: [type: :pos_integer, required: false, default: @default_request_ttl],
+    request_ttl: [type: :non_neg_integer, required: false, default: @default_request_ttl],
     mode: [type: {:in, @modes}, required: true]
   ]
 
