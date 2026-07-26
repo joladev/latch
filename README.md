@@ -1,6 +1,8 @@
 # Latch
 
-atproto OAuth and client library attempting to follow the specification strictly, while also following Elixir library guidelines. The goal is for the library to be easy to use and not get in your way, but fully flexible. Use it to build atproto based apps where users can log in with their atproto accounts, from existing services like Bluesky, Blacksky or Eurosky.
+atproto OAuth and client library attempting to follow the specification strictly, while also following Elixir library guidelines. The goal is for the library to be easy to use and not get in your way, but fully flexible. Use it to build atproto based apps where users can log in with their atproto accounts from existing services like Bluesky, Blacksky or Eurosky.
+
+It comes with DPoP nonce caching built-in, which cuts down on round-trips over multiple requests, and supports `:confidential`, `:public`, and `:localhost` client modes. You can run multiple instances of Latch, adding them to your supervision tree or starting them ad-hoc, including in tests.
 
 ## Installation
 
@@ -105,6 +107,7 @@ raise on errors. See `Latch.Error` for more information.
 - [x] Public client
 - [x] Local client
 - [x] Built-in ETS LatchStore implementation
+- [ ] Service auth
 - [ ] Getting started guide
 - [ ] Extensive tests
 
