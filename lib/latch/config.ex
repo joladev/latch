@@ -9,7 +9,7 @@ defmodule Latch.Config do
     * `:redirect_uri` - the OAuth callback URL
     * `:scope` - the requsted scopes
     * `:client_id` - the URL of the published client metadata document
-    * `:signing_key` - the ES256 `JOSE.JWK` private key for `private_key_jwt` as string
+    * `:signing_key` - the JSON-encoded ES256 private JWK for `private_key_jwt` as string
     * `:client_name` - shown on the authorization consent screen
     * `:client_uri` - client home page
   """
