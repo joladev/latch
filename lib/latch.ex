@@ -1,66 +1,9 @@
 defmodule Latch do
-  @moduledoc """
-  A library for building atproto OAuth integrations with a low-level
-  client runtime.
-
-  Latch implements [atproto OAuth](https://atproto.com/specs/oauth), including:
-  * identity resolution
-  * server discovery
-  * pushed authorization requests (PAR)
-  * proof key for code exchange (PKCE)
-  * demonstrating proof of possession (DPoP) with server-issued nonces
-  * token exchange
-  * refresh
-  * authenticated XRPC calls to a user's PDS
-
-  ## Get started
-
-  Add `Latch` to your supervision tree, giving it a unique name
-  and a `Latch.Store` implementation:
-
-    children = [
-      {Latch,
-        name: MyApp.Latch,
-        store: MyApp.LatchStore,
-        client_id: "https://myapp.example/oauth-client-metadata.json",
-        redirect_uri: "https://myapp.example/auth/callback",
-        scope: "atproto",
-        signing_key: "key"},
-        mode: :confidential
-    ]
-
-  Optional keys: `:client_name`, `:client_uri` and `request_ttl`.
-
-  ## Login flow
-
-  1. `authorize/2` resolves the handle, pushes the authorization request,
-     and returns the URL to redirect the browser to.
-  2. The user authorizes, their authorization server redirects back to your
-     `redirect_uri`.
-  3. `callback/2` validates the callback params, exchanges the code, and
-     stores the session for you using your `Latch.Store` implementation.
-     Returns identity information for the user.
-
-  When a user logs out, call `delete_session` to clear their session.
-
-  ## Authenticated requests
-
-  `query/4`, `procedure/4`, and `upload_blob/4` make XRPC calls to a user's
-  PDS, where their data is stored, using DPoP under the hood. The session lives
-  in your datastore, defined through your `Latch.Store` module. Latch uses
-  that to store and rotate access tokens for the client requests.
-
-    Latch.query(MyApp.Latch, "did:plc:abc123", "com.atproto.repo.getRecord",
-      repo: "did:plc:abc123",
-      collection: "app.bsky.feed.post",
-      rkey: "3k2..."
-    )
-
-  ## Errors
-
-  Public functions return `{:error, exception}` tuples and will not normally
-  raise on errors. See `Latch.Error` for more information.
-  """
+  @external_resource "README.md"
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.split("<!-- MDOC !-->")
+             |> Enum.fetch!(1)
 
   use Supervisor
 
@@ -248,6 +191,7 @@ defmodule Latch do
   end
 
   @doc """
+  Deletes the session for `did`. Call this when the user logs out.
   """
   @spec delete_session(name(), String.t()) :: :ok | {:error, StoreError.t()}
   def delete_session(name, did) do

@@ -4,7 +4,7 @@ defmodule Latch.HTTP do
 
   Fetches raw bodies and decodes JSON explicity, so behavior does not depend
   on server-provided content types (DID documents are sometimes served as
-  `application/did+ld+json).
+  `application/did+ld+json`).
   """
 
   alias Latch.Error.InvalidResponse
