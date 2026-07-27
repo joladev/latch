@@ -56,7 +56,8 @@ defmodule Latch.HTTP do
       form: form,
       headers: headers,
       decode_body: false,
-      receive_timeout: @receive_timeout
+      receive_timeout: @receive_timeout,
+      redirect: false
     ]
 
     case Req.post(options) do
@@ -82,7 +83,8 @@ defmodule Latch.HTTP do
       url: url,
       headers: headers,
       decode_body: false,
-      receive_timeout: @receive_timeout
+      receive_timeout: @receive_timeout,
+      redirect: false
     ]
 
     case Req.request(put_body(options, body)) do
