@@ -95,8 +95,13 @@ Calls go to the user's PDS, and access tokens are refreshed automatically:
 
 ## Errors
 
-Public functions return `{:error, exception}` tuples and will not normally
-raise on errors. See `Latch.Error` for more information.
+Public functions return `{:error, exception}` tuples and will not normally raise on errors. See `Latch.Error` for more information.
+
+## On correctness
+
+> Postel's law: conservative in what you send, liberal in what you accept.
+
+The library attempts to follow the spec strictly, but primarily in what the library itself does, and less strictly in what it accepts as long as it's not a security issue.
 
 <!-- MDOC !-->
 
@@ -107,6 +112,7 @@ raise on errors. See `Latch.Error` for more information.
 - [x] Public client
 - [x] Local client
 - [x] Built-in ETS LatchStore implementation
+- [ ] TID, NSID, AtURI, DID, Handle
 - [ ] Service auth
 - [ ] Getting started guide
 - [ ] Extensive tests
