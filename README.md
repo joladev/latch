@@ -97,6 +97,38 @@ Calls go to the user's PDS, and access tokens are refreshed automatically:
 
 Public functions return `{:error, exception}` tuples and will not normally raise on errors. See `Latch.Error` for more information.
 
+## Diagram of the OAuth flow
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant App as Your app (Latch)
+  participant PDS as PDS
+  participant AS as Authorization Server
+
+  User->>App: handle (alice.example.com)
+  App->>PDS: resolve handle → DID → DID document
+  App->>PDS: GET /.well-known/oauth-protected-resource
+  App->>AS: GET /.well-known/oauth-authorization-server
+  Note over App,AS: identity + server discovery
+
+  App->>AS: PAR: POST pushed authorization request (DPoP)
+  AS-->>App: request_uri (+ DPoP-Nonce)
+  App->>User: redirect to AS authorization endpoint
+
+  User->>AS: authenticates, approves
+  AS->>User: redirect to redirect_uri (code, state, iss)
+  User->>App: callback
+
+  App->>AS: token exchange: code + PKCE verifier (DPoP, client_assertion)
+  AS-->>App: access token + refresh token (bound to DPoP key)
+
+  Note over App,PDS: session established, stored via Latch.Store
+
+  App->>PDS: XRPC calls (access token + fresh DPoP proof)
+  App->>AS: refresh when expired (DPoP)
+```
+
 ## On correctness
 
 > Postel's law: conservative in what you send, liberal in what you accept.
