@@ -187,75 +187,46 @@ defmodule Latch.Flow do
   end
 
   defp dpop_request(config, url, build_form, dpop_key) do
-    origin = origin(url)
-    thumbprint = DPoP.thumbprint(dpop_key)
+    DPoP.with_nonce(config, dpop_key, url, fn nonce ->
+      proof = DPoP.proof(dpop_key, "POST", url, nonce: nonce)
 
-    nonce =
-      case Latch.NonceCache.get_nonce(config, thumbprint, origin) do
-        {:ok, nonce} -> nonce
-        :error -> nil
+      case HTTP.post_form(url, build_form.(), [{"dpop", proof}]) do
+        {:ok, %{status: status, body: raw, headers: headers}} ->
+          fresh_nonce = DPoP.nonce_header(headers)
+
+          case decode_json(raw) do
+            {:ok, body} ->
+              result = classify(status, body)
+              {result, fresh_nonce}
+
+            {:error, error} ->
+              {{:error, error}, nil}
+          end
+
+        {:error, error} ->
+          {{:error, error}, nil}
       end
-
-    send_dpop(config, url, build_form, dpop_key, origin, thumbprint, nonce)
+    end)
   end
 
-  defp send_dpop(config, url, build_form, dpop_key, origin, thumbprint, nonce) do
-    proof = DPoP.proof(dpop_key, "POST", url, nonce: nonce)
+  defp classify(status, body) do
+    cond do
+      status in 200..299 ->
+        {:ok, body}
 
-    with {:ok, %{status: status, body: raw, headers: headers}} <-
-           HTTP.post_form(url, build_form.(), [{"dpop", proof}]),
-         {:ok, body} <- decode_json(raw) do
-      if fresh = nonce_header(headers) do
-        Latch.NonceCache.put_nonce(config, thumbprint, origin, fresh)
-      end
+      body["error"] == "use_dpop_nonce" ->
+        :challenge
 
-      cond do
-        status in 200..299 ->
-          {:ok, body}
+      is_binary(body["error"]) ->
+        {:error,
+         %OAuth{
+           error: body["error"],
+           description: body["error_description"],
+           error_uri: body["error_uri"]
+         }}
 
-        retry_nonce?(body, nonce) ->
-          retry_with_nonce(config, url, build_form, dpop_key, origin, thumbprint, headers)
-
-        is_binary(Map.get(body, "error")) ->
-          {:error,
-           %OAuth{
-             error: Map.fetch!(body, "error"),
-             description: Map.get(body, "error_description"),
-             error_uri: Map.get(body, "error_uri")
-           }}
-
-        true ->
-          {:error, %InvalidResponse{reason: :unexpected_response}}
-      end
-    end
-  end
-
-  defp retry_with_nonce(config, url, build_form, dpop_key, origin, thumbprint, headers) do
-    if nonce = nonce_header(headers) do
-      send_dpop(config, url, build_form, dpop_key, origin, thumbprint, nonce)
-    else
-      {:error, %MissingDPoPNonce{}}
-    end
-  end
-
-  defp origin(url) do
-    %URI{scheme: scheme, host: host, port: port} = URI.parse(url)
-    default = if scheme == "https", do: 443, else: 80
-
-    if is_nil(port) or port == default do
-      "#{scheme}://#{host}"
-    else
-      "#{scheme}://#{host}:#{port}"
-    end
-  end
-
-  defp retry_nonce?(%{"error" => "use_dpop_nonce"}, nil), do: true
-  defp retry_nonce?(_body, _nonce), do: false
-
-  defp nonce_header(headers) do
-    case Map.get(headers, "dpop-nonce") do
-      [nonce | _] -> nonce
-      _ -> nil
+      true ->
+        {:error, %InvalidResponse{reason: :unexpected_response}}
     end
   end
 

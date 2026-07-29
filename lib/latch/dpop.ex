@@ -1,8 +1,16 @@
 defmodule Latch.DPoP do
   @moduledoc """
-  DPoP (RFC 9449) proof JWTs for atproto OAuth.
+  DPoP (RFC 9449) proof JWTs for atproto OAuth, and server-issued nonce flow
+  shared by `Latch.XRPC` and `Latch.Flow`.
   """
 
+  alias Latch.Config
+  alias Latch.Error.InvalidResponse
+  alias Latch.Error.MissingDPoPNonce
+  alias Latch.Error.OAuth
+  alias Latch.Error.Transport
+  alias Latch.Error.XRPC
+  alias Latch.NonceCache
   alias Latch.PKCE
 
   @curve "P-256"
@@ -83,6 +91,40 @@ defmodule Latch.DPoP do
     |> JOSE.JWK.thumbprint()
   end
 
+  @doc """
+  Plumbing for the DPoP-nonce flow used in `Latch.Flow` and `Latch.XRPC`. This wraps
+  the logic for getting nonces, caching new ones, and retrying challenges like 4xx responses.
+  """
+  @type send_error :: InvalidResponse.t() | OAuth.t() | Transport.t() | XRPC.t()
+  @type send_result ::
+          {{:ok, map()} | :challenge | {:error, send_error()}, String.t() | nil}
+  @spec with_nonce(Config.t(), map(), String.t(), (String.t() | nil -> send_result())) ::
+          {:ok, map()}
+          | {:error, MissingDPoPNonce.t() | send_error()}
+  def with_nonce(%Config{} = config, dpop_key, url, send) do
+    origin = origin(url)
+    thumbprint = thumbprint(dpop_key)
+
+    nonce =
+      case NonceCache.get_nonce(config, thumbprint, origin) do
+        {:ok, nonce} -> nonce
+        :error -> nil
+      end
+
+    attempt(config, thumbprint, origin, send, nonce, true)
+  end
+
+  @doc """
+  Extract `dpop-nonce` header from a map of headers.
+  """
+  @spec nonce_header(map()) :: String.t() | nil
+  def nonce_header(headers) do
+    case Map.get(headers, "dpop-nonce") do
+      [nonce | _] -> nonce
+      _ -> nil
+    end
+  end
+
   defp htu(url) do
     url
     |> URI.parse()
@@ -98,5 +140,35 @@ defmodule Latch.DPoP do
     bytes
     |> :crypto.strong_rand_bytes()
     |> Base.url_encode64(padding: false)
+  end
+
+  defp attempt(config, thumbprint, origin, send, nonce, retry?) do
+    {result, fresh_nonce} = send.(nonce)
+
+    if fresh_nonce do
+      NonceCache.put_nonce(config, thumbprint, origin, fresh_nonce)
+    end
+
+    case result do
+      :challenge when retry? and is_binary(fresh_nonce) ->
+        attempt(config, thumbprint, origin, send, fresh_nonce, false)
+
+      :challenge ->
+        {:error, %MissingDPoPNonce{}}
+
+      _ ->
+        result
+    end
+  end
+
+  defp origin(url) do
+    %URI{scheme: scheme, host: host, port: port} = URI.parse(url)
+    default = if scheme == "https", do: 443, else: 80
+
+    if is_nil(port) or port == default do
+      "#{scheme}://#{host}"
+    else
+      "#{scheme}://#{host}:#{port}"
+    end
   end
 end

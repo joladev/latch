@@ -116,6 +116,7 @@ The library attempts to follow the spec strictly, but primarily in what the libr
 - [ ] Service auth
 - [ ] Getting started guide
 - [ ] Extensive tests
+- [ ] Distributed nonce cache
 
 ## Specification references
 

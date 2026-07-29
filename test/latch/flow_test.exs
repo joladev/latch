@@ -110,6 +110,77 @@ defmodule Latch.FlowTest do
                )
     end
 
+    test "retries with nonce" do
+      dpop_key = DPoP.generate_key()
+      config = make_config()
+      expected_nonce = "expected"
+
+      start_link_supervised!(
+        {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
+      )
+
+      server = make_server_metadata()
+
+      expect(HTTP, :post_form, fn _url, _form, headers ->
+        assert [{"dpop", proof}] = headers
+        [_header, payload, _signature] = String.split(proof, ".")
+
+        decoded_payload =
+          payload
+          |> Base.url_decode64!(padding: false)
+          |> Jason.decode!()
+
+        # There is no nonce because the AS has not given us one yet.
+        refute decoded_payload["nonce"]
+        assert decoded_payload["htm"] == "POST"
+        assert decoded_payload["htu"] == server.par_endpoint
+
+        send(self(), {:jti, decoded_payload["jti"]})
+
+        {:ok,
+         %{
+           status: 400,
+           headers: %{"dpop-nonce" => [expected_nonce]},
+           body: Jason.encode!(%{error: "use_dpop_nonce"})
+         }}
+      end)
+
+      expect(HTTP, :post_form, fn _url, _form, headers ->
+        assert [{"dpop", proof}] = headers
+        [_header, payload, _signature] = String.split(proof, ".")
+
+        decoded_payload =
+          payload
+          |> Base.url_decode64!(padding: false)
+          |> Jason.decode!()
+
+        assert_receive {:jti, jti}
+
+        assert expected_nonce == decoded_payload["nonce"]
+
+        # `jti` must be unique per request
+        refute jti == decoded_payload["jti"]
+
+        {:ok,
+         %{
+           status: 201,
+           headers: %{},
+           body: ~s({"request_uri":"urn:ietf:params:oauth:request_uri:request"})
+         }}
+      end)
+
+      assert {:ok, "urn:ietf:params:oauth:request_uri:request"} =
+               Flow.par(config, server,
+                 client_id: "https://client.example.com/oauth-client-metadata.json",
+                 redirect_uri: "https://client.example.com/oauth/callback",
+                 scope: "atproto",
+                 state: "state",
+                 code_challenge: "pkce-challenge",
+                 dpop_key: dpop_key,
+                 login_hint: "alice.example.com"
+               )
+    end
+
     test "public client omits client_assertion" do
       dpop_key = DPoP.generate_key()
       config = make_config(mode: :public)

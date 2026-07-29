@@ -59,57 +59,28 @@ defmodule Latch.XRPC do
   end
 
   defp request(%Config{} = config, %Session{} = session, http_method, url, body) do
-    origin = origin(url)
-    thumbprint = DPoP.thumbprint(session.dpop_key)
-
-    nonce =
-      case Latch.NonceCache.get_nonce(config, thumbprint, origin) do
-        {:ok, nonce} -> nonce
-        :error -> nil
-      end
-
-    send_dpop(config, session, http_method, url, body, origin, thumbprint, nonce)
-  end
-
-  defp send_dpop(
-         %Config{} = config,
-         %Session{} = session,
-         http_method,
-         url,
-         body,
-         origin,
-         thumbprint,
-         nonce
-       ) do
-    proof =
-      DPoP.proof(session.dpop_key, http_method, url,
-        nonce: nonce,
-        access_token: session.access_token
-      )
-
-    headers = [{"authorization", "DPoP #{session.access_token}"}, {"dpop", proof}]
-
-    with {:ok, %{status: status, body: raw, headers: resp_headers}} <-
-           HTTP.request(http_method, url, headers, body) do
-      if fresh = nonce_header(resp_headers) do
-        Latch.NonceCache.put_nonce(config, thumbprint, origin, fresh)
-      end
-
-      if needs_nonce?(status, resp_headers) do
-        retry_with_nonce(
-          config,
-          session,
-          http_method,
-          url,
-          body,
-          origin,
-          thumbprint,
-          resp_headers
+    DPoP.with_nonce(config, session.dpop_key, url, fn nonce ->
+      proof =
+        DPoP.proof(session.dpop_key, http_method, url,
+          nonce: nonce,
+          access_token: session.access_token
         )
-      else
-        handle_response(status, raw)
+
+      headers = [{"authorization", "DPoP #{session.access_token}"}, {"dpop", proof}]
+
+      case HTTP.request(http_method, url, headers, body) do
+        {:ok, %{status: status, body: raw, headers: resp}} ->
+          fresh_nonce = DPoP.nonce_header(resp)
+
+          result =
+            if needs_nonce?(status, resp), do: :challenge, else: handle_response(status, raw)
+
+          {result, fresh_nonce}
+
+        {:error, error} ->
+          {{:error, error}, nil}
       end
-    end
+    end)
   end
 
   defp handle_response(status, raw) do
@@ -119,34 +90,6 @@ defmodule Latch.XRPC do
       else
         {:error, %XRPC{status: status, body: decoded}}
       end
-    end
-  end
-
-  defp retry_with_nonce(
-         %Config{} = config,
-         %Session{} = session,
-         http_method,
-         url,
-         body,
-         origin,
-         thumbprint,
-         headers
-       ) do
-    if nonce = nonce_header(headers) do
-      send_dpop(config, session, http_method, url, body, origin, thumbprint, nonce)
-    else
-      {:error, %MissingDPoPNonce{}}
-    end
-  end
-
-  defp origin(url) do
-    %URI{scheme: scheme, host: host, port: port} = URI.parse(url)
-    default = if scheme == "https", do: 443, else: 80
-
-    if is_nil(port) or port == default do
-      "#{scheme}://#{host}"
-    else
-      "#{scheme}://#{host}:#{port}"
     end
   end
 
@@ -161,13 +104,6 @@ defmodule Latch.XRPC do
   end
 
   defp needs_nonce?(_status, _headers), do: false
-
-  defp nonce_header(headers) do
-    case Map.get(headers, "dpop-nonce") do
-      [nonce | _] -> nonce
-      _ -> nil
-    end
-  end
 
   defp decode_json(raw) do
     case Jason.decode(raw) do
