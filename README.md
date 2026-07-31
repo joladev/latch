@@ -144,7 +144,7 @@ The library attempts to follow the spec strictly, but primarily in what the libr
 - [x] Public client
 - [x] Local client
 - [x] Built-in ETS LatchStore implementation
-- [ ] TID, NSID, AtURI, DID, Handle
+- [x] TID, NSID, AtURI, DID, Handle
 - [ ] Service auth
 - [ ] Getting started guide
 - [ ] Extensive tests
