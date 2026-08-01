@@ -36,8 +36,7 @@ Using the built-in ETS `Store` implementation, create your module like:
       use Latch.Store.ETS
     end
 
-Add `Latch` to your supervision tree, giving it a unique name
-and a `Latch.Store` implementation:
+Add `Latch` to your supervision tree, giving it a unique name and a `Latch.Store` implementation:
 
     children = [
       {MyApp.LatchStore, []},
@@ -61,20 +60,16 @@ You need to set up a route to serve the client metadata.
 
 ### Login flow
 
-1. `authorize/2` resolves the handle, pushes the authorization request,
-   and returns the URL to redirect the browser to.
+1. `authorize/2` resolves the handle, pushes the authorization request, and returns the URL to redirect the browser to.
 
        {:ok, url} = Latch.authorize(MyApp.Latch, "alice.bsky.social")
 
-2. The user authorizes, and their authorization server redirects back
-  to your `redirect_uri`.
-3. `callback/2` validates the callback params, exchanges the code, and
-  stores the session for you. Returns identity information:
+2. The user authorizes, and their authorization server redirects back to your `redirect_uri`.
+3. `callback/2` validates the callback params, exchanges the code, and stores the session for you. Returns identity information:
 
        {:ok, %{did: did, handle: handle}} = Latch.callback(MyApp.Latch, conn.params)
 
-The session is stored keyed by `did` — that `did` is all you need for
-authenticated calls. When a user logs out, call `delete_session`:
+The session is stored keyed by `did` — that `did` is all you need for authenticated calls. When a user logs out, call `delete_session`:
 
     :ok = Latch.delete_session(MyApp.Latch, did)
 
@@ -94,6 +89,34 @@ Calls go to the user's PDS, and access tokens are refreshed automatically:
       collection: "app.bsky.feed.post",
       record: %{text: "Hello atproto", createdAt: DateTime.utc_now()}
     })
+
+## Service auth
+
+Latch supports service auth through PDS proxying, by passing `service` as an option to a client call, like this:
+
+    Latch.query(MyApp.Latch, did, "app.bsky.notification.getUnreadCount",
+      service: "did:web:api.bsky.app#bsky_appview"
+    )
+
+Alternatively, you can fetch a short-lived service auth token and pass it as a bearer token, following the documentation [here](https://docs.bsky.app/docs/advanced-guides/service-auth). Here's an example for uploading a video to Bluesky, which does not support PDS proxying.
+
+    # grab the pds_endpoint from the user's session
+    aud = "did:web:" <> URI.parse(pds_endpoint).host
+
+    {:ok, %{"token" => jwt}} =
+      Latch.query(MyApp.Latch, did, "com.atproto.server.getServiceAuth",
+        params: [
+          aud: aud,
+          lxm: "com.atproto.repo.uploadBlob",
+          exp: System.system_time(:second) + 30 * 60
+        ]
+      )
+
+    Req.post("https://video.bsky.app/xrpc/app.bsky.video.uploadVideo",
+      headers: [{"authorization", "Bearer " <> jwt}, {"content-type", "video/mp4"}],
+      params: [did: did, name: filename],
+      body: video_bytes
+    )
 
 ## Errors
 
@@ -147,8 +170,8 @@ The library attempts to follow the spec strictly, but primarily in what the libr
 - [x] Local client
 - [x] Built-in ETS LatchStore implementation
 - [x] TID, NSID, AtURI, DID, Handle
-- [x] Service auth (atproto-proxy)
-- [ ] Service auth (bearer auth)
+- [x] Service auth
+- [ ] Unauthed client requests
 - [ ] Getting started guide
 - [ ] Extensive tests
 - [ ] Distributed nonce cache
