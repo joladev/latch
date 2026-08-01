@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.4.0 (2026-08-01)
+
+  * Breaking change: the 4th argument to `query` now takes `opts` instead of `params`, where `params` is one of the possible opts.
+  * Introduce support for PDS proxying of requests, passing the `service` opt to the client calls.
+
 ## v0.3.0 (2026-07-31)
 
   * Stop following redirects on sensitive HTTP requests.
