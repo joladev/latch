@@ -24,26 +24,28 @@ defmodule Latch.Client do
   """
   @spec query(Config.t(), String.t(), String.t(), keyword()) ::
           {:ok, map()} | {:error, Error.t()}
-  def query(%Config{} = config, did, method, params \\ []) do
-    call(config, did, fn session -> XRPC.query(config, session, method, params) end)
+  def query(%Config{} = config, did, method, opts) do
+    call(config, did, fn session -> XRPC.query(config, session, method, opts) end)
   end
 
   @doc """
   Performs an authenticated XRPC procedure for `did`, with automatic refresh.
   """
-  @spec procedure(Config.t(), String.t(), String.t(), map()) ::
+  @spec procedure(Config.t(), String.t(), String.t(), map(), keyword()) ::
           {:ok, map()} | {:error, Error.t()}
-  def procedure(%Config{} = config, did, method, body) do
-    call(config, did, fn session -> XRPC.procedure(config, session, method, body) end)
+  def procedure(%Config{} = config, did, method, body, opts) do
+    call(config, did, fn session -> XRPC.procedure(config, session, method, body, opts) end)
   end
 
   @doc """
   Uploads a blob for `did`, with automatic refresh.
   """
-  @spec upload_blob(Config.t(), String.t(), binary(), String.t()) ::
+  @spec upload_blob(Config.t(), String.t(), binary(), String.t(), keyword()) ::
           {:ok, map()} | {:error, Error.t()}
-  def upload_blob(%Config{} = config, did, bytes, content_type) do
-    call(config, did, fn session -> XRPC.upload_blob(config, session, bytes, content_type) end)
+  def upload_blob(%Config{} = config, did, bytes, content_type, opts) do
+    call(config, did, fn session ->
+      XRPC.upload_blob(config, session, bytes, content_type, opts)
+    end)
   end
 
   defp call(config, did, fun) do

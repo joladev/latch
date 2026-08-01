@@ -211,11 +211,17 @@ defmodule Latch do
   Assumes the session exists, that the user of that `did` is authenticated.
   If not, returns `{:error, %NoSession{}}`.
 
+  ## Options
+
+  * `:service` - the service endpoint identifier when proxying through PDS, eg did:web:api.bsky.app#bsky_appview
+  * `:params` - params for the method, eg `params: [actor: "did:plc:bvraa6gajy4tfr3eh2sisdkr"]` resulting in
+    `app.bsky.actor.getProfile?actor=did:plc:bvraa6gajy4tfr3eh2sisdkr`
+
   ## Examples
 
-      Latch.query(MyApp.Latch, "did:plc:abc123", "com.atproto.repo.getRecord", repo: "did:plc:abc123", collection: "app.bsky.feed.post", rkey: "3k2...")
+      Latch.query(MyApp.Latch, "did:plc:abc123", "com.atproto.repo.getRecord", params: [repo: "did:plc:abc123", collection: "app.bsky.feed.post", rkey: "3k2..."])
   """
-  @spec query(name(), String.t(), String.t(), Keyword.t()) ::
+  @spec query(name(), String.t(), String.t(), keyword()) ::
           {:ok, map()}
           | {:error,
              InvalidResponse.t()
@@ -225,14 +231,18 @@ defmodule Latch do
              | StoreError.t()
              | Transport.t()
              | XRPCError.t()}
-  def query(name, did, method, params \\ []) do
+  def query(name, did, method, opts \\ []) do
     %Config{} = config = config(name)
 
-    Latch.Client.query(config, did, method, params)
+    Latch.Client.query(config, did, method, opts)
   end
 
   @doc """
   Performs a procedure against the user's PDS using their DID's session.
+
+  ## Options
+
+  * `service` - the service endpoint identifier when proxying through PDS, eg did:web:api.bsky.app#bsky_appview
 
   ## Examples
 
@@ -243,7 +253,7 @@ defmodule Latch do
         record: %{"$type" => "app.bsky.feed.post", "text" => "Hello!"}
       })
   """
-  @spec procedure(name(), String.t(), String.t(), map()) ::
+  @spec procedure(name(), String.t(), String.t(), map(), keyword()) ::
           {:ok, map()}
           | {:error,
              InvalidResponse.t()
@@ -253,18 +263,22 @@ defmodule Latch do
              | StoreError.t()
              | Transport.t()
              | XRPCError.t()}
-  def procedure(name, did, method, body) do
+  def procedure(name, did, method, body, opts \\ []) do
     %Config{} = config = config(name)
 
-    Latch.Client.procedure(config, did, method, body)
+    Latch.Client.procedure(config, did, method, body, opts)
   end
 
   @doc """
   Upload a blob to the user's PDS using their DID's session.
 
   `content_type` is the blob's MIME type, eg `"image/png"`.
+
+  ## Options
+
+  * `service` - the service endpoint identifier when proxying through PDS, eg did:web:api.bsky.app#bsky_appview
   """
-  @spec upload_blob(name(), String.t(), binary(), String.t()) ::
+  @spec upload_blob(name(), String.t(), binary(), String.t(), keyword()) ::
           {:ok, map()}
           | {:error,
              InvalidResponse.t()
@@ -274,10 +288,10 @@ defmodule Latch do
              | StoreError.t()
              | Transport.t()
              | XRPCError.t()}
-  def upload_blob(name, did, bytes, content_type) do
+  def upload_blob(name, did, bytes, content_type, opts \\ []) do
     %Config{} = config = config(name)
 
-    Latch.Client.upload_blob(config, did, bytes, content_type)
+    Latch.Client.upload_blob(config, did, bytes, content_type, opts)
   end
 
   defp complete_callback(

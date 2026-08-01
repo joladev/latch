@@ -83,9 +83,11 @@ authenticated calls. When a user logs out, call `delete_session`:
 Calls go to the user's PDS, and access tokens are refreshed automatically:
 
     Latch.query(MyApp.Latch, did, "com.atproto.repo.getRecord",
-      repo: did,
-      collection: "app.bsky.feed.post",
-      rkey: "3k2...")
+      params: [
+        repo: did,
+        collection: "app.bsky.feed.post",
+        rkey: "3k2..."
+      ])
 
     Latch.procedure(MyApp.Latch, did, "com.atproto.repo.createRecord", %{
       repo: did,
@@ -145,7 +147,8 @@ The library attempts to follow the spec strictly, but primarily in what the libr
 - [x] Local client
 - [x] Built-in ETS LatchStore implementation
 - [x] TID, NSID, AtURI, DID, Handle
-- [ ] Service auth
+- [x] Service auth (atproto-proxy)
+- [ ] Service auth (bearer auth)
 - [ ] Getting started guide
 - [ ] Extensive tests
 - [ ] Distributed nonce cache

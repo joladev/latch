@@ -24,41 +24,55 @@ defmodule Latch.XRPC do
   Performs and authenticated XRPC query against the session's PDS.
   """
   @spec query(Config.t(), Session.t(), String.t(), keyword()) :: {:ok, map()} | {:error, error()}
-  def query(%Config{} = config, %Session{} = session, method, params \\ []) do
+  def query(%Config{} = config, %Session{} = session, method, opts) do
+    params = Keyword.get(opts, :params, [])
+
     request(
       config,
       session,
       "GET",
       session.pds_endpoint <> "/xrpc/" <> method <> query_string(params),
-      nil
+      nil,
+      opts
     )
   end
 
   @doc """
   Performs and authenticated XRPC procedure against the session's PDS.
   """
-  @spec procedure(Config.t(), Session.t(), String.t(), map()) :: {:ok, map()} | {:error, error()}
-  def procedure(%Config{} = config, %Session{} = session, method, body) do
-    request(config, session, "POST", session.pds_endpoint <> "/xrpc/" <> method, {:json, body})
+  @spec procedure(Config.t(), Session.t(), String.t(), map(), keyword()) ::
+          {:ok, map()} | {:error, error()}
+  def procedure(%Config{} = config, %Session{} = session, method, body, opts) do
+    request(
+      config,
+      session,
+      "POST",
+      session.pds_endpoint <> "/xrpc/" <> method,
+      {:json, body},
+      opts
+    )
   end
 
   @doc """
   Uploads raw bytes of content_type as a blob, returning the response with
   the blog reference.
   """
-  @spec upload_blob(Config.t(), Session.t(), binary(), String.t()) ::
+  @spec upload_blob(Config.t(), Session.t(), binary(), String.t(), keyword()) ::
           {:ok, map()} | {:error, error()}
-  def upload_blob(%Config{} = config, %Session{} = session, bytes, content_type) do
+  def upload_blob(%Config{} = config, %Session{} = session, bytes, content_type, opts) do
     request(
       config,
       session,
       "POST",
       session.pds_endpoint <> "/xrpc/com.atproto.repo.uploadBlob",
-      {:raw, bytes, content_type}
+      {:raw, bytes, content_type},
+      opts
     )
   end
 
-  defp request(%Config{} = config, %Session{} = session, http_method, url, body) do
+  defp request(%Config{} = config, %Session{} = session, http_method, url, body, opts) do
+    service = Keyword.get(opts, :service)
+
     DPoP.with_nonce(config, session.dpop_key, url, fn nonce ->
       proof =
         DPoP.proof(session.dpop_key, http_method, url,
@@ -67,6 +81,13 @@ defmodule Latch.XRPC do
         )
 
       headers = [{"authorization", "DPoP #{session.access_token}"}, {"dpop", proof}]
+
+      headers =
+        if service do
+          [{"atproto-proxy", service} | headers]
+        else
+          headers
+        end
 
       case HTTP.request(http_method, url, headers, body) do
         {:ok, %{status: status, body: raw, headers: resp}} ->

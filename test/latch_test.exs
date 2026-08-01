@@ -156,12 +156,15 @@ defmodule LatchTest do
           mode: :confidential
         )
 
-      expect(Client, :query, fn _config, @did, "app.bsky.actor.getProfile", actor: @did ->
+      expect(Client, :query, fn _config,
+                                @did,
+                                "app.bsky.actor.getProfile",
+                                params: [actor: @did] ->
         {:ok, %{"did" => @did}}
       end)
 
       assert {:ok, %{"did" => @did}} =
-               Latch.query(pid, @did, "app.bsky.actor.getProfile", actor: @did)
+               Latch.query(pid, @did, "app.bsky.actor.getProfile", params: [actor: @did])
     end
   end
 
@@ -183,7 +186,7 @@ defmodule LatchTest do
         "record" => %{"text" => "hi"}
       }
 
-      expect(Client, :procedure, fn _config, @did, "com.atproto.repo.putRecord", ^body ->
+      expect(Client, :procedure, fn _config, @did, "com.atproto.repo.putRecord", ^body, [] ->
         {:ok, %{"uri" => "at://#{@did}/app.bsky.feed.post/abc"}}
       end)
 
@@ -204,7 +207,7 @@ defmodule LatchTest do
           mode: :confidential
         )
 
-      expect(Client, :upload_blob, fn _config, @did, <<1, 2, 3>>, "image/png" ->
+      expect(Client, :upload_blob, fn _config, @did, <<1, 2, 3>>, "image/png", [] ->
         {:ok, %{"blob" => %{"ref" => "reffers"}}}
       end)
 

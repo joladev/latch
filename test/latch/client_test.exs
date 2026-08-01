@@ -37,12 +37,12 @@ defmodule Latch.ClientTest do
       expect(XRPC, :query, fn _config,
                               ^refreshed_session,
                               "app.bsky.actor.getProfile",
-                              actor: @did ->
+                              params: [actor: @did] ->
         {:ok, %{"did" => @did}}
       end)
 
       assert {:ok, %{"did" => @did}} =
-               Client.query(config, @did, "app.bsky.actor.getProfile", actor: @did)
+               Client.query(config, @did, "app.bsky.actor.getProfile", params: [actor: @did])
 
       assert {:ok, ^refreshed_session} = Latch.TestStore.fetch_session(@did)
     end
@@ -56,10 +56,10 @@ defmodule Latch.ClientTest do
       :ok = Latch.TestStore.put_session(@did, stale_session)
 
       expect(XRPC, :query, 2, fn
-        _config, ^stale_session, "app.bsky.actor.getProfile", actor: @did ->
+        _config, ^stale_session, "app.bsky.actor.getProfile", params: [actor: @did] ->
           {:error, %XRPCError{status: 401, body: %{}}}
 
-        _config, ^refreshed_session, "app.bsky.actor.getProfile", actor: @did ->
+        _config, ^refreshed_session, "app.bsky.actor.getProfile", params: [actor: @did] ->
           {:ok, %{"did" => @did}}
       end)
 
@@ -70,7 +70,7 @@ defmodule Latch.ClientTest do
       end)
 
       assert {:ok, %{"did" => @did}} =
-               Client.query(config, @did, "app.bsky.actor.getProfile", actor: @did)
+               Client.query(config, @did, "app.bsky.actor.getProfile", params: [actor: @did])
 
       assert {:ok, ^refreshed_session} = Latch.TestStore.fetch_session(@did)
     end
@@ -84,12 +84,16 @@ defmodule Latch.ClientTest do
 
       :ok = Latch.TestStore.put_session(@did, valid_session)
 
-      expect(XRPC, :procedure, fn _config, ^valid_session, "com.atproto.repo.putRecord", ^body ->
+      expect(XRPC, :procedure, fn _config,
+                                  ^valid_session,
+                                  "com.atproto.repo.putRecord",
+                                  ^body,
+                                  [] ->
         {:ok, %{"uri" => "at://#{@did}/app.bsky.feed.post/abc"}}
       end)
 
       assert {:ok, %{"uri" => _}} =
-               Client.procedure(config, @did, "com.atproto.repo.putRecord", body)
+               Client.procedure(config, @did, "com.atproto.repo.putRecord", body, [])
     end
   end
 
@@ -100,11 +104,12 @@ defmodule Latch.ClientTest do
 
       :ok = Latch.TestStore.put_session(@did, valid_session)
 
-      expect(XRPC, :upload_blob, fn _config, ^valid_session, <<1, 2, 3>>, "image/png" ->
+      expect(XRPC, :upload_blob, fn _config, ^valid_session, <<1, 2, 3>>, "image/png", [] ->
         {:ok, %{"blob" => %{"ref" => "reffers"}}}
       end)
 
-      assert {:ok, %{"blob" => _}} = Client.upload_blob(config, @did, <<1, 2, 3>>, "image/png")
+      assert {:ok, %{"blob" => _}} =
+               Client.upload_blob(config, @did, <<1, 2, 3>>, "image/png", [])
     end
   end
 
