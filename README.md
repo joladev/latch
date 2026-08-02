@@ -9,7 +9,7 @@ It comes with DPoP nonce caching built-in, which cuts down on round-trips over m
 ```elixir
 def deps do
   [
-    {:latch, "~> 0.2.0"}
+    {:latch, "~> 0.4.0"}
   ]
 end
 ```
@@ -52,7 +52,7 @@ Add `Latch` to your supervision tree, giving it a unique name and a `Latch.Store
 
 `signing_key` is the JWK from step 2 above. Optional keys: `:client_name`, `:client_uri` and `request_ttl`. Instead of using the built-in ETS Store implementation you can create your own, implementing the `Latch.Store` behavior.
 
-You need to set up a route to serve the client metadata.
+You need to set up a route to serve the client metadata, matching the configuration `/oauth-client-metadata.json`.
 
     def client_metadata(conn, _params) do
       json(conn, Latch.client_metadata(MyApp.Latch))
@@ -77,26 +77,43 @@ The session is stored keyed by `did` — that `did` is all you need for authenti
 
 Calls go to the user's PDS, and access tokens are refreshed automatically:
 
-    Latch.query(MyApp.Latch, did, "com.atproto.repo.getRecord",
-      params: [
+    {:ok,
+      %{
+        "uri" => "at://did:plc:abc123/app.bsky.feed.post/3k2...",
+        "cid" => "bafyreid...",
+        "value" => %{
+          "$type" => "app.bsky.feed.post",
+          "text" => "Hello atproto",
+          "createdAt" => "2026-07-31T12:00:00.000Z"
+        }
+      }} =
+      Latch.query(MyApp.Latch, did, "com.atproto.repo.getRecord",
+        params: [
+          repo: did,
+          collection: "app.bsky.feed.post",
+          rkey: "3k2..."
+        ]
+      )
+
+    {:ok,
+      %{
+        "uri" => "at://did:plc:abc123/app.bsky.feed.post/3k5...",
+        "cid" => "bafyreig..."
+      }} =
+      Latch.procedure(MyApp.Latch, did, "com.atproto.repo.createRecord", %{
         repo: did,
         collection: "app.bsky.feed.post",
-        rkey: "3k2..."
-      ])
-
-    Latch.procedure(MyApp.Latch, did, "com.atproto.repo.createRecord", %{
-      repo: did,
-      collection: "app.bsky.feed.post",
-      record: %{text: "Hello atproto", createdAt: DateTime.utc_now()}
-    })
+        record: %{text: "Hello atproto", createdAt: DateTime.utc_now()}
+      })
 
 ## Service auth
 
 Latch supports service auth through PDS proxying, by passing `service` as an option to a client call, like this:
 
-    Latch.query(MyApp.Latch, did, "app.bsky.notification.getUnreadCount",
-      service: "did:web:api.bsky.app#bsky_appview"
-    )
+    {:ok, %{"count" => 4}} =
+      Latch.query(MyApp.Latch, did, "app.bsky.notification.getUnreadCount",
+        service: "did:web:api.bsky.app#bsky_appview"
+      )
 
 Alternatively, you can fetch a short-lived service auth token and pass it as a bearer token, following the documentation [here](https://docs.bsky.app/docs/advanced-guides/service-auth). Here's an example for uploading a video to Bluesky, which does not support PDS proxying.
 
