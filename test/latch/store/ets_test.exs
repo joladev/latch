@@ -12,8 +12,8 @@ defmodule Latch.Store.ETSTest do
 
   @did "did:plc:bvraa6gajy4tfr3eh2sisdkr"
   @handle "jola.dev"
-  @client_id "https://client.example.com/oauth-client-metadata.json"
-  @redirect_uri "https://client.example.com/oauth/callback"
+  @client_id_path "/oauth-client-metadata.json"
+  @redirect_uri_path "/oauth/callback"
   @issuer "https://issuer.example.com"
   @pds "https://pds.example.com"
   @dpop_key DPoP.generate_key()
@@ -344,11 +344,12 @@ defmodule Latch.Store.ETSTest do
         [
           name: name,
           store: Latch.ETSStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
           signing_key: Jason.encode!(@dpop_key),
-          mode: :confidential
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
         ],
         overrides
       )

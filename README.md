@@ -44,8 +44,10 @@ Add `Latch` to your supervision tree, giving it a unique name and a `Latch.Store
         name: MyApp.Latch,
         mode: :confidential,
         store: MyApp.LatchStore,
-        client_id: "https://myapp.example/oauth-client-metadata.json",
-        redirect_uri: "https://myapp.example/auth/callback",
+        client_id_path: "/oauth-client-metadata.json",
+        redirect_uri_path: "/auth/callback",
+        # Dynamically resolve the base URL at runtime, or pass a hard-coded URL
+        base_url_fun: fn -> MyApp.Endpoint.url() end,
         scope: "atproto",
         signing_key: System.fetch_env!("ATPROTO_CLIENT_PRIVATE_JWK")}
     ]

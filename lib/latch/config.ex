@@ -1,25 +1,26 @@
 defmodule Latch.Config do
   @moduledoc """
-  The configuration that drives the client.
+  The internal configuration that drives the library.
 
   ## Fields
     * `:store` - a module implementing `Latch.Store`
     * `:name` - the name of the Latch instance
     * `:mode` - `:confidential`, `:public`, or `:localhost`
-    * `:redirect_uri` - the OAuth callback URL
+    * `:redirect_uri_path` - the OAuth callback path
     * `:scope` - the requsted scopes
-    * `:client_id` - the URL of the published client metadata document
+    * `:client_id_path` - the path of the published client metadata document
     * `:signing_key` - the JSON-encoded ES256 private JWK for `private_key_jwt` as string
     * `:client_name` - shown on the authorization consent screen
     * `:client_uri` - client home page
+    * `:base_url_fun` - function to build the base URL for `redirect_uri` and `client_id`, because the host is frequently only known at runtime.
   """
 
   @default_request_ttl 600
 
-  @enforce_keys [:store, :redirect_uri, :scope, :name, :mode]
+  @enforce_keys [:store, :redirect_uri_path, :scope, :name, :mode, :base_url_fun]
   defstruct @enforce_keys ++
               [
-                :client_id,
+                :client_id_path,
                 :signing_key,
                 :client_name,
                 :client_uri,
@@ -31,8 +32,9 @@ defmodule Latch.Config do
   @type t :: %__MODULE__{
           store: module(),
           mode: mode(),
-          client_id: String.t() | nil,
-          redirect_uri: String.t(),
+          client_id_path: String.t() | nil,
+          redirect_uri_path: String.t(),
+          base_url_fun: (-> String.t()),
           scope: String.t(),
           signing_key: map() | nil,
           name: atom() | pid(),
@@ -43,10 +45,11 @@ defmodule Latch.Config do
 
   @modes [:confidential, :public, :localhost]
 
-  @schema [
+  @input_schema [
     store: [type: :atom, required: true],
-    client_id: [type: :string, required: false],
-    redirect_uri: [type: :string, required: true],
+    client_id_path: [type: :string, required: false],
+    redirect_uri_path: [type: :string, required: true],
+    base_url_fun: [type: {:fun, 0}, required: true],
     scope: [type: :string, required: true],
     signing_key: [type: :string, required: false],
     name: [type: {:or, [:atom, :pid]}, required: true],
@@ -58,14 +61,15 @@ defmodule Latch.Config do
 
   @doc false
   def build!(opts) when is_list(opts) do
-    validated = NimbleOptions.validate!(opts, @schema)
+    validated = NimbleOptions.validate!(opts, @input_schema)
     mode = validated[:mode]
 
     struct!(
       __MODULE__,
       store: validated[:store],
-      client_id: client_id!(mode, validated),
-      redirect_uri: validated[:redirect_uri],
+      client_id_path: client_id_path!(mode, validated),
+      redirect_uri_path: validated[:redirect_uri_path],
+      base_url_fun: validated[:base_url_fun],
       scope: validated[:scope],
       signing_key: signing_key!(mode, validated),
       name: validated[:name],
@@ -82,27 +86,42 @@ defmodule Latch.Config do
   def localhost?(%__MODULE__{mode: :localhost}), do: true
   def localhost?(%__MODULE__{}), do: false
 
-  defp client_id!(:localhost, validated) do
-    if client_id = validated[:client_id] do
-      error(
-        :client_id,
-        client_id,
-        "invalid value for :client_id option, not allowed when mode is :localhost"
-      )
-    end
-
-    "http://localhost?" <>
-      URI.encode_query(redirect_uri: validated[:redirect_uri], scope: validated[:scope])
+  def client_id(%__MODULE__{
+        mode: :localhost,
+        redirect_uri_path: redirect_uri_path,
+        scope: scope,
+        base_url_fun: base_url_fun
+      }) do
+    redirect_uri = base_url_fun.() <> redirect_uri_path
+    "http://localhost?" <> URI.encode_query(redirect_uri: redirect_uri, scope: scope)
   end
 
-  defp client_id!(_mode, validated) do
-    if client_id = validated[:client_id] do
-      client_id
+  def client_id(%__MODULE{client_id_path: client_id_path, base_url_fun: base_url_fun}) do
+    base_url_fun.() <> client_id_path
+  end
+
+  def redirect_uri(%__MODULE__{redirect_uri_path: redirect_uri_path, base_url_fun: base_url_fun}) do
+    base_url_fun.() <> redirect_uri_path
+  end
+
+  defp client_id_path!(:localhost, validated) do
+    if client_id_path = validated[:client_id_path] do
+      error(
+        :client_id_path,
+        client_id_path,
+        "invalid value for :client_id_path option, not allowed when mode is :localhost"
+      )
+    end
+  end
+
+  defp client_id_path!(_mode, validated) do
+    if client_id_path = validated[:client_id_path] do
+      client_id_path
     else
       error(
-        :client_id,
+        :client_id_path,
         nil,
-        "required :client_id option not found, received options: #{inspect(Keyword.keys(validated))}"
+        "required :client_id_path option not found, received options: #{inspect(Keyword.keys(validated))}"
       )
     end
   end

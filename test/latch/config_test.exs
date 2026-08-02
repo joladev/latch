@@ -4,8 +4,10 @@ defmodule Latch.ConfigTest do
   alias Latch.Config
 
   @store Latch.TestStore
-  @client_id "client_id"
-  @redirect_uri "redirect_uri"
+  @client_id_path "/client_id"
+  @client_id "https://client.example.com" <> @client_id_path
+  @redirect_uri_path "/redirect_uri"
+  @redirect_uri "https://client.example.com" <> @redirect_uri_path
   @scope "atproto something"
   @signing_key ~s({"kty":"EC"})
   @name :name
@@ -17,8 +19,8 @@ defmodule Latch.ConfigTest do
       assert %Config{} = config = Config.build!(opts([]))
 
       assert config.store == @store
-      assert config.client_id == @client_id
-      assert config.redirect_uri == @redirect_uri
+      assert Config.client_id(config) == @client_id
+      assert Config.redirect_uri(config) == @redirect_uri
       assert config.scope == @scope
       assert config.signing_key == Jason.decode!(@signing_key)
       assert config.name == @name
@@ -73,7 +75,7 @@ defmodule Latch.ConfigTest do
                    fn ->
                      [mode: :localhost]
                      |> opts()
-                     |> Keyword.delete(:client_id)
+                     |> Keyword.delete(:client_id_path)
                      |> Config.build!()
                    end
     end
@@ -83,14 +85,15 @@ defmodule Latch.ConfigTest do
     Keyword.merge(
       [
         store: @store,
-        client_id: @client_id,
-        redirect_uri: @redirect_uri,
+        client_id_path: @client_id_path,
+        redirect_uri_path: @redirect_uri_path,
         scope: @scope,
         signing_key: @signing_key,
         name: @name,
         client_name: @client_name,
         client_uri: @client_uri,
-        mode: :confidential
+        mode: :confidential,
+        base_url_fun: fn -> "https://client.example.com" end
       ],
       overrides
     )

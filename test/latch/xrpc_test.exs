@@ -126,12 +126,13 @@ defmodule Latch.XRPCTest do
   defp make_config(overrides \\ []) do
     defaults = [
       store: Latch.TestStore,
-      client_id: "https://client.example.com/oauth-client-metadata.json",
-      redirect_uri: "https://client.example.com/oauth/callback",
+      client_id_path: "/oauth-client-metadata.json",
+      redirect_uri_path: "/oauth/callback",
       scope: "atproto",
       signing_key: Jason.decode!(Jason.encode!(DPoP.generate_key())),
       name: :"flow_test_#{inspect(self())}",
-      mode: :confidential
+      mode: :confidential,
+      base_url_fun: fn -> "https://client.example.com" end
     ]
 
     attrs = Keyword.merge(defaults, overrides)

@@ -14,8 +14,8 @@ defmodule Latch.ClientTest do
   @did "did:plc:bvraa6gajy4tfr3eh2sisdkr"
   @pds "https://pds.example.com"
   @issuer "https://issuer.example.com"
-  @client_id "https://client.example.com/oauth-client-metadata.json"
-  @redirect_uri "https://client.example.com/oauth/callback"
+  @client_id_path "/oauth-client-metadata.json"
+  @redirect_uri_path "/oauth/callback"
 
   describe "query/3" do
     test "refreshes an expired session before making an XRPC query" do
@@ -29,7 +29,7 @@ defmodule Latch.ClientTest do
       expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :refresh, fn _config, ^server, ^stale_session, opts ->
-        assert opts[:client_id] == config.client_id
+        assert opts[:client_id] == Latch.Config.client_id(config)
         assert opts[:client_jwk] == config.signing_key
         {:ok, refreshed_session}
       end)
@@ -139,12 +139,13 @@ defmodule Latch.ClientTest do
   defp make_config do
     %Config{
       store: Latch.TestStore,
-      client_id: @client_id,
-      redirect_uri: @redirect_uri,
+      client_id_path: @client_id_path,
+      redirect_uri_path: @redirect_uri_path,
       scope: "atproto",
       signing_key: ~s({"kty":"EC"}),
       name: :name,
-      mode: :confidential
+      mode: :confidential,
+      base_url_fun: fn -> "https://client.example.com" end
     }
   end
 end

@@ -218,14 +218,8 @@ defmodule Latch.FlowTest do
     test "localhost client omits client_assertion" do
       dpop_key = DPoP.generate_key()
 
-      redirect_uri = "http://127.0.0.1/callback"
-
       config =
-        make_config(
-          mode: :localhost,
-          client_id:
-            "http://localhost?redirect_uri=#{URI.encode_www_form(redirect_uri)}&scope=atproto"
-        )
+        make_config(mode: :localhost)
 
       start_link_supervised!(
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
@@ -297,12 +291,13 @@ defmodule Latch.FlowTest do
   defp make_config(overrides \\ []) do
     defaults = [
       store: Latch.TestStore,
-      client_id: "https://client.example.com/oauth-client-metadata.json",
-      redirect_uri: "https://client.example.com/oauth/callback",
+      client_id_path: "/oauth-client-metadata.json",
+      redirect_uri_path: "/oauth/callback",
       scope: "atproto",
       signing_key: Jason.decode!(Jason.encode!(Latch.DPoP.generate_key())),
       name: :"flow_test_#{inspect(self())}",
-      mode: :confidential
+      mode: :confidential,
+      base_url_fun: fn -> "https://client.example.com" end
     ]
 
     attrs = Keyword.merge(defaults, overrides)

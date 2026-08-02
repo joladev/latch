@@ -37,7 +37,9 @@ defmodule Latch do
 
   ## Examples
 
-      iex> {:ok, _pid} = Latch.start_link(name: LatchStartLinkExample, store: Latch.TestStore, mode: :confidential, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
+    iex> {:ok, pid} = Latch.start_link(name: LatchStartLinkExample, store: Latch.TestStore, mode: :confidential, client_id_path: "/metadata.json", redirect_uri_path: "/callback", base_url_fun: fn -> "https://example.com" end, scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
+    iex> is_pid(pid)
+    true
   """
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -51,8 +53,8 @@ defmodule Latch do
 
   ## Examples
 
-      iex> Latch.child_spec(name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key, mode: :confidential)
-      %{id: MyApp.Latch, start: {Latch, :start_link, [[name: MyApp.Latch, store: MyApp.Store, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: :test_key, mode: :confidential]]}, type: :supervisor}
+      iex> %{id: MyApp.Latch, type: :supervisor, start: {Latch, :start_link, [_opts]}} =
+      ...>   Latch.child_spec(name: MyApp.Latch, store: MyApp.Store, client_id_path: "/metadata.json", redirect_uri_path: "/callback", scope: "atproto", signing_key: :test_key, mode: :confidential, base_url_fun: fn -> "https://example.com" end)
   """
   def child_spec(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -88,8 +90,8 @@ defmodule Latch do
     %Config{} = config = config(name)
 
     ClientMetadata.build(
-      client_id: config.client_id,
-      redirect_uris: [config.redirect_uri],
+      client_id: Config.client_id(config),
+      redirect_uris: [Config.redirect_uri(config)],
       scope: config.scope,
       jwk: config.signing_key,
       client_name: config.client_name,
@@ -110,7 +112,7 @@ defmodule Latch do
 
   ## Examples
 
-      iex> {:ok, _pid} = Latch.start_link(mode: :confidential, name: LatchAuthorizeExample, store: Latch.TestStore, client_id: "https://myapp.example/metadata.json", redirect_uri: "https://myapp.example/callback", scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
+      iex> {:ok, _pid} = Latch.start_link(mode: :confidential, name: LatchAuthorizeExample, store: Latch.TestStore, client_id_path: "/metadata.json", redirect_uri_path: "/callback", base_url_fun: fn -> "https://example.com" end, scope: "atproto", signing_key: Jason.encode!(Latch.DPoP.generate_key()))
       iex> Latch.authorize(LatchAuthorizeExample, "not a handle")
       {:error, %Latch.Error.HandleNotFound{handle: "not a handle", reason: :invalid_handle}}
   """
@@ -137,9 +139,9 @@ defmodule Latch do
            Discovery.discover(identity.pds_endpoint, allow_http: Config.localhost?(config)),
          {:ok, request_uri} <-
            Flow.par(config, server,
-             client_id: config.client_id,
+             client_id: Config.client_id(config),
              client_jwk: config.signing_key,
-             redirect_uri: config.redirect_uri,
+             redirect_uri: Config.redirect_uri(config),
              scope: config.scope,
              state: state,
              code_challenge: PKCE.challenge(verifier),
@@ -157,7 +159,7 @@ defmodule Latch do
            dpop_key: dpop_key
          },
          :ok <- store_request(config, request) do
-      {:ok, Flow.authorization_url(server, config.client_id, request_uri)}
+      {:ok, Flow.authorization_url(server, Config.client_id(config), request_uri)}
     end
   end
 
@@ -319,9 +321,9 @@ defmodule Latch do
     with :ok <- verify_issuer(request, issuer),
          {:ok, session} <-
            Flow.exchange_code(config,
-             client_id: config.client_id,
+             client_id: Config.client_id(config),
              client_jwk: config.signing_key,
-             redirect_uri: config.redirect_uri,
+             redirect_uri: Config.redirect_uri(config),
              code: code,
              code_verifier: request.pkce_verifier,
              dpop_key: request.dpop_key,

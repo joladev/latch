@@ -17,7 +17,8 @@ defmodule LatchTest do
   @pds "https://pds.example.com"
   @issuer "https://issuer.example.com"
   @client_id "https://client.example.com/oauth-client-metadata.json"
-  @redirect_uri "https://client.example.com/oauth/callback"
+  @client_id_path "/oauth-client-metadata.json"
+  @redirect_uri_path "/oauth/callback"
 
   describe "authorize/2" do
     test "resolves identity, creates PAR, stores the request, and returns the redirect URL" do
@@ -26,11 +27,12 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
           signing_key: Jason.encode!(DPoP.generate_key()),
-          mode: :confidential
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
         )
 
       identity = %Identity{did: @did, handle: @handle, pds_endpoint: @pds}
@@ -40,8 +42,8 @@ defmodule LatchTest do
       expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn config, ^server, opts ->
-        assert opts[:client_id] == config.client_id
-        assert opts[:redirect_uri] == config.redirect_uri
+        assert opts[:client_id] == Latch.Config.client_id(config)
+        assert opts[:redirect_uri] == Latch.Config.redirect_uri(config)
         assert opts[:scope] == config.scope
         assert opts[:login_hint] == @handle
         assert is_binary(opts[:state])
@@ -87,11 +89,12 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
           signing_key: Jason.encode!(DPoP.generate_key()),
-          mode: :confidential
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
         )
 
       request = %Request{
@@ -149,11 +152,12 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
           signing_key: Jason.encode!(DPoP.generate_key()),
-          mode: :confidential
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
         )
 
       expect(Client, :query, fn _config,
@@ -173,11 +177,12 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
           signing_key: Jason.encode!(DPoP.generate_key()),
-          mode: :confidential
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
         )
 
       body = %{
@@ -200,11 +205,12 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
           signing_key: Jason.encode!(DPoP.generate_key()),
-          mode: :confidential
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
         )
 
       expect(Client, :upload_blob, fn _config, @did, <<1, 2, 3>>, "image/png", [] ->
@@ -220,11 +226,12 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
           signing_key: Jason.encode!(DPoP.generate_key()),
-          mode: :confidential
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
         )
 
       assert %{
@@ -255,10 +262,11 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          client_id: @client_id,
-          redirect_uri: @redirect_uri,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
-          mode: :public
+          mode: :public,
+          base_url_fun: fn -> "https://client.example.com" end
         )
 
       assert %{
@@ -277,18 +285,19 @@ defmodule LatchTest do
       pid =
         start_latch(
           store: Latch.TestStore,
-          redirect_uri: @redirect_uri,
+          redirect_uri_path: @redirect_uri_path,
           scope: "atproto",
-          mode: :localhost
+          mode: :localhost,
+          base_url_fun: fn -> "http://localhost" end
         )
 
       assert %{
                "application_type" => "native",
                "client_id" =>
-                 "http://localhost?redirect_uri=https%3A%2F%2Fclient.example.com%2Foauth%2Fcallback&scope=atproto",
+                 "http://localhost?redirect_uri=http%3A%2F%2Flocalhost%2Foauth%2Fcallback&scope=atproto",
                "dpop_bound_access_tokens" => true,
                "grant_types" => ["authorization_code", "refresh_token"],
-               "redirect_uris" => ["https://client.example.com/oauth/callback"],
+               "redirect_uris" => ["http://localhost/oauth/callback"],
                "response_types" => ["code"],
                "scope" => "atproto",
                "token_endpoint_auth_method" => "none"

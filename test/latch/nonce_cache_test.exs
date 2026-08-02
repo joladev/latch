@@ -77,12 +77,13 @@ defmodule Latch.NonceCacheTest do
   defp config(name) do
     %Config{
       store: Latch.TestStore,
-      client_id: "client-id",
-      redirect_uri: "redirect-uri",
+      client_id_path: "/client-id",
+      redirect_uri_path: "/redirect-uri",
       scope: "atproto",
       signing_key: ~s({"kty":"EC"}),
       name: name,
-      mode: :confidential
+      mode: :confidential,
+      base_url_fun: fn -> "https://example.com" end
     }
   end
 end

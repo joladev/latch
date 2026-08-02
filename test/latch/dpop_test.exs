@@ -9,12 +9,13 @@ defmodule Latch.DPoPTest do
     test "retry with nonce after challenge" do
       config = %Config{
         store: Latch.TestStore,
-        client_id: "client_id",
-        redirect_uri: "direct_uri",
+        client_id_path: "/client_id",
+        redirect_uri_path: "/direct_uri",
         scope: "atproto",
         signing_key: nil,
         name: :"#{inspect(self())}",
-        mode: :confidential
+        mode: :confidential,
+        base_url_fun: fn -> "https://example.com" end
       }
 
       start_link_supervised!(
@@ -48,12 +49,13 @@ defmodule Latch.DPoPTest do
     test "uses cached nonce" do
       config = %Config{
         store: Latch.TestStore,
-        client_id: "client_id",
-        redirect_uri: "direct_uri",
+        client_id_path: "/client_id",
+        redirect_uri_path: "/direct_uri",
         scope: "atproto",
         signing_key: nil,
         name: :"#{inspect(self())}",
-        mode: :confidential
+        mode: :confidential,
+        base_url_fun: fn -> "https://example.com" end
       }
 
       start_link_supervised!(
