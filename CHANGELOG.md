@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.5.0 (2026-08-02)
+
+  * Breaking change: `client_id` and `redirect_uri` are replaced with `client_id_path`, `redirect_uri_path`, and `base_url_fun`, with the latter dynamically building the base URL, eg `fn -> MyAppWeb.Endpoint.url() end`.
+
 ## v0.4.0 (2026-08-01)
 
   * Breaking change: the 4th argument to `query` now takes `opts` instead of `params`, where `params` is one of the possible opts.
