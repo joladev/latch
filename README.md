@@ -47,7 +47,7 @@ Add `Latch` to your supervision tree, giving it a unique name and a `Latch.Store
         client_id_path: "/oauth-client-metadata.json",
         redirect_uri_path: "/auth/callback",
         # Dynamically resolve the base URL at runtime, or pass a hard-coded URL
-        base_url_fun: fn -> MyApp.Endpoint.url() end,
+        base_url_fun: &MyApp.Endpoint.url/0,
         scope: "atproto",
         signing_key: System.fetch_env!("ATPROTO_CLIENT_PRIVATE_JWK")}
     ]

@@ -2,7 +2,7 @@
 
 ## v0.5.0 (2026-08-02)
 
-  * Breaking change: `client_id` and `redirect_uri` are replaced with `client_id_path`, `redirect_uri_path`, and `base_url_fun`, with the latter dynamically building the base URL, eg `fn -> MyAppWeb.Endpoint.url() end`.
+  * Breaking change: `client_id` and `redirect_uri` are replaced with `client_id_path`, `redirect_uri_path`, and `base_url_fun`, with the latter dynamically building the base URL, eg `&MyAppWeb.Endpoint.url/0`.
 
 ## v0.4.0 (2026-08-01)
 
