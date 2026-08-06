@@ -1,4 +1,4 @@
-# Latch
+# Latch [![Package Version](https://img.shields.io/hexpm/v/latch)](https://hex.pm/packages/latch) [![Hex Docs](https://img.shields.io/badge/hex-docs-pink)](https://hexdocs.pm/latch/)
 
 atproto OAuth and client library attempting to follow the specification strictly, while also following Elixir library guidelines. The goal is for the library to be easy to use and not get in your way, but fully flexible. Use it to build atproto based apps where users can log in with their atproto accounts from existing services like Bluesky, Blacksky or Eurosky.
 
