@@ -23,7 +23,7 @@ defmodule Latch.FlowTest do
       client_jwk = DPoP.generate_key()
       dpop_key = DPoP.generate_key()
 
-      expect(HTTP, :post_form, fn url, form, headers ->
+      expect(HTTP, :post_form, fn _pool, url, form, headers ->
         assert url == "https://issuer.example.com/oauth/token"
         assert form[:grant_type] == "authorization_code"
         assert form[:code] == "authorization-code"
@@ -82,7 +82,7 @@ defmodule Latch.FlowTest do
 
       server = make_server_metadata()
 
-      expect(HTTP, :post_form, fn url, form, headers ->
+      expect(HTTP, :post_form, fn _pool, url, form, headers ->
         assert url == "https://issuer.example.com/oauth/par"
         assert form[:response_type] == "code"
         assert form[:state] == "state"
@@ -121,7 +121,7 @@ defmodule Latch.FlowTest do
 
       server = make_server_metadata()
 
-      expect(HTTP, :post_form, fn _url, _form, headers ->
+      expect(HTTP, :post_form, fn _config, _url, _form, headers ->
         assert [{"dpop", proof}] = headers
         [_header, payload, _signature] = String.split(proof, ".")
 
@@ -145,7 +145,7 @@ defmodule Latch.FlowTest do
          }}
       end)
 
-      expect(HTTP, :post_form, fn _url, _form, headers ->
+      expect(HTTP, :post_form, fn _config, _url, _form, headers ->
         assert [{"dpop", proof}] = headers
         [_header, payload, _signature] = String.split(proof, ".")
 
@@ -191,7 +191,7 @@ defmodule Latch.FlowTest do
 
       server = make_server_metadata()
 
-      expect(HTTP, :post_form, fn url, form, _headers ->
+      expect(HTTP, :post_form, fn _config, url, form, _headers ->
         assert url == server.par_endpoint
         refute Keyword.has_key?(form, :client_assertion)
         refute Keyword.has_key?(form, :client_assertion_type)
@@ -227,7 +227,7 @@ defmodule Latch.FlowTest do
 
       server = make_server_metadata()
 
-      expect(HTTP, :post_form, fn url, form, _headers ->
+      expect(HTTP, :post_form, fn _config, url, form, _headers ->
         assert url == server.par_endpoint
         refute Keyword.has_key?(form, :client_assertion)
         refute Keyword.has_key?(form, :client_assertion_type)
@@ -254,7 +254,7 @@ defmodule Latch.FlowTest do
 
   describe "refresh/3" do
     test "rejects a refresh when discovery returns a different issuer" do
-      reject(HTTP, :post_form, 3)
+      reject(HTTP, :post_form, 5)
       config = make_config()
 
       start_link_supervised!(

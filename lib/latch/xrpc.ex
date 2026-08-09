@@ -91,7 +91,7 @@ defmodule Latch.XRPC do
 
       http_opts = Keyword.get(opts, :http, [])
 
-      case HTTP.request(http_method, url, headers, body, http_opts) do
+      case HTTP.request(config.pool, http_method, url, headers, body, http_opts) do
         {:ok, %{status: status, body: raw, headers: resp}} ->
           fresh_nonce = DPoP.nonce_header(resp)
 

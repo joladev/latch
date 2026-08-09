@@ -13,6 +13,7 @@ defmodule Latch.Config do
     * `:client_name` - shown on the authorization consent screen
     * `:client_uri` - client home page
     * `:base_url_fun` - function to build the base URL for `redirect_uri` and `client_id`, because the host is frequently only known at runtime.
+    * `:finch` - an optional Finch override to the Req client, refer to https://req.hexdocs.pm/Req.html#new/2 for the full set of options
   """
 
   @default_request_ttl 600
@@ -24,6 +25,7 @@ defmodule Latch.Config do
                 :signing_key,
                 :client_name,
                 :client_uri,
+                :pool,
                 request_ttl: @default_request_ttl
               ]
 
@@ -40,7 +42,8 @@ defmodule Latch.Config do
           name: atom() | pid(),
           client_name: String.t() | nil,
           client_uri: String.t() | nil,
-          request_ttl: non_neg_integer()
+          request_ttl: non_neg_integer(),
+          pool: keyword()
         }
 
   @modes [:confidential, :public, :localhost]
@@ -56,7 +59,8 @@ defmodule Latch.Config do
     client_name: [type: :string, required: false],
     client_uri: [type: :string, required: false],
     request_ttl: [type: :non_neg_integer, required: false, default: @default_request_ttl],
-    mode: [type: {:in, @modes}, required: true]
+    mode: [type: {:in, @modes}, required: true],
+    finch: [type: :keyword_list, required: false]
   ]
 
   @doc false
@@ -76,7 +80,8 @@ defmodule Latch.Config do
       client_name: validated[:client_name],
       client_uri: validated[:client_uri],
       request_ttl: validated[:request_ttl],
-      mode: mode
+      mode: mode,
+      pool: configure_pool(validated[:finch], validated[:name])
     )
   end
 
@@ -152,5 +157,13 @@ defmodule Latch.Config do
 
   defp error(key, value, message) do
     raise %NimbleOptions.ValidationError{key: key, value: value, message: message}
+  end
+
+  defp configure_pool(nil, base) do
+    [name: Latch.Pool.name(base)]
+  end
+
+  defp configure_pool(finch, _base) do
+    finch
   end
 end

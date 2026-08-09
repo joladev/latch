@@ -28,8 +28,8 @@ defmodule Latch.Store.ETSTest do
       server = server()
       request_uri = "urn:ietf:params:oauth:request_uri:request"
 
-      expect(Identity, :resolve_handle, fn _handle -> {:ok, identity} end)
-      expect(Discovery, :discover, fn _pds, _opts -> {:ok, server} end)
+      expect(Identity, :resolve_handle, fn _config, _handle -> {:ok, identity} end)
+      expect(Discovery, :discover, fn _config, _pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn _config, _server, opts ->
         send(self(), {:state, opts[:state]})
@@ -93,8 +93,8 @@ defmodule Latch.Store.ETSTest do
       server = server()
       request_uri = "urn:ietf:params:oauth:request_uri:request"
 
-      expect(Identity, :resolve_handle, fn _handle -> {:ok, identity} end)
-      expect(Discovery, :discover, fn _pds, _opts -> {:ok, server} end)
+      expect(Identity, :resolve_handle, fn _config, _handle -> {:ok, identity} end)
+      expect(Discovery, :discover, fn _config, _pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn _config, _server, opts ->
         send(self(), {:state, opts[:state]})
@@ -152,8 +152,8 @@ defmodule Latch.Store.ETSTest do
       server = server()
       request_uri = "urn:ietf:params:oauth:request_uri:request"
 
-      expect(Identity, :resolve_handle, fn _handle -> {:ok, identity} end)
-      expect(Discovery, :discover, fn _pds, _opts -> {:ok, server} end)
+      expect(Identity, :resolve_handle, fn _config, _handle -> {:ok, identity} end)
+      expect(Discovery, :discover, fn _config, _pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn _config, _server, opts ->
         send(self(), {:state, opts[:state]})
@@ -184,8 +184,8 @@ defmodule Latch.Store.ETSTest do
       server = server()
       request_uri = "urn:ietf:params:oauth:request_uri:request"
 
-      expect(Identity, :resolve_handle, fn _handle -> {:ok, identity} end)
-      expect(Discovery, :discover, fn _pds, _opts -> {:ok, server} end)
+      expect(Identity, :resolve_handle, fn _config, _handle -> {:ok, identity} end)
+      expect(Discovery, :discover, fn _config, _pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn _config, _server, opts ->
         send(self(), {:state, opts[:state]})
@@ -213,7 +213,7 @@ defmodule Latch.Store.ETSTest do
         {:ok, session}
       end)
 
-      expect(Discovery, :discover, fn _pds, _opts -> {:ok, server} end)
+      expect(Discovery, :discover, fn _config, _pds, _opts -> {:ok, server} end)
 
       expect(Flow, :refresh, fn _config, _server, old_session, _opts ->
         assert session == old_session
@@ -258,8 +258,8 @@ defmodule Latch.Store.ETSTest do
       server = server()
       request_uri = "urn:ietf:params:oauth:request_uri:request"
 
-      expect(Identity, :resolve_handle, fn _handle -> {:ok, identity} end)
-      expect(Discovery, :discover, fn _pds, _opts -> {:ok, server} end)
+      expect(Identity, :resolve_handle, fn _config, _handle -> {:ok, identity} end)
+      expect(Discovery, :discover, fn _config, _pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn _config, _server, opts ->
         send(self(), {:state, opts[:state]})
@@ -287,7 +287,7 @@ defmodule Latch.Store.ETSTest do
         {:ok, session}
       end)
 
-      expect(Discovery, :discover, fn _pds, _opts -> {:ok, server} end)
+      expect(Discovery, :discover, fn _config, _pds, _opts -> {:ok, server} end)
 
       # Refresh only happens once even when we trigger refresh 10 times
       # by using XPRC in a `for` below.

@@ -38,8 +38,8 @@ defmodule LatchTest do
       identity = %Identity{did: @did, handle: @handle, pds_endpoint: @pds}
       server = server()
 
-      expect(Identity, :resolve_handle, fn @handle -> {:ok, identity} end)
-      expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
+      expect(Identity, :resolve_handle, fn _config, @handle -> {:ok, identity} end)
+      expect(Discovery, :discover, fn _config, @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :par, fn config, ^server, opts ->
         assert opts[:client_id] == Latch.Config.client_id(config)

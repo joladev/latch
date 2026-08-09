@@ -102,7 +102,9 @@ defmodule Latch.Client do
   defp do_refresh(config, session) do
     result =
       with {:ok, server} <-
-             Discovery.discover(session.pds_endpoint, allow_http: Config.localhost?(config)) do
+             Discovery.discover(config, session.pds_endpoint,
+               allow_http: Config.localhost?(config)
+             ) do
         Flow.refresh(config, server, session,
           client_id: Config.client_id(config),
           client_jwk: config.signing_key

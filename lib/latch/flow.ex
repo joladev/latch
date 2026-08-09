@@ -190,7 +190,7 @@ defmodule Latch.Flow do
     DPoP.with_nonce(config, dpop_key, url, fn nonce ->
       proof = DPoP.proof(dpop_key, "POST", url, nonce: nonce)
 
-      case HTTP.post_form(url, build_form.(), [{"dpop", proof}]) do
+      case HTTP.post_form(config.pool, url, build_form.(), [{"dpop", proof}]) do
         {:ok, %{status: status, body: raw, headers: headers}} ->
           fresh_nonce = DPoP.nonce_header(headers)
 

@@ -9,6 +9,7 @@ defmodule Latch.Discovery do
   metadata is trusted.
   """
 
+  alias Latch.Config
   alias Latch.Error.Discovery, as: DiscoveryError
   alias Latch.Error.Transport
   alias Latch.HTTP
@@ -23,16 +24,17 @@ defmodule Latch.Discovery do
   ## Options
   - `:allow_http` - in localhost mode we don't have to force https
   """
-  @spec discover(String.t(), keyword()) ::
+  @spec discover(Config.t(), String.t(), keyword()) ::
           {:ok, ServerMetadata.t()}
           | {:error, DiscoveryError.t() | Transport.t()}
-  def discover(pds_endpoint, opts \\ []) when is_binary(pds_endpoint) do
+  def discover(%Config{} = config, pds_endpoint, opts \\ []) when is_binary(pds_endpoint) do
     allow_http = Keyword.get(opts, :allow_http, false)
 
     with :ok <- require_https(pds_endpoint, allow_http),
-         {:ok, resource} <- HTTP.get_json(pds_endpoint <> @protected_resource_path),
+         {:ok, resource} <-
+           HTTP.get_json(config.pool, pds_endpoint <> @protected_resource_path),
          {:ok, issuer} <- authorization_server(resource, pds_endpoint, allow_http),
-         {:ok, metadata} <- HTTP.get_json(issuer <> @auth_server_path),
+         {:ok, metadata} <- HTTP.get_json(config.pool, issuer <> @auth_server_path),
          {:ok, server} <- parse_server_metadata(metadata, pds_endpoint),
          :ok <- verify_issuer(server, issuer, pds_endpoint) do
       {:ok, server}

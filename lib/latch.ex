@@ -26,6 +26,7 @@ defmodule Latch do
   alias Latch.Flow
   alias Latch.Identity
   alias Latch.PKCE
+  alias Latch.Pool
   alias Latch.Request
 
   @type name :: atom() | pid()
@@ -71,10 +72,22 @@ defmodule Latch do
     :persistent_term.put({__MODULE__, self()}, config)
     :persistent_term.put({__MODULE__, name}, config)
 
+    pool =
+      if Pool.start_pool?(config) do
+        {Finch, name: Pool.name(config.name), pools: %{default: Pool.default_pool_opts()}}
+      end
+
+    children =
+      Enum.reject(
+        [
+          {Latch.NonceCache, config: config, name: name},
+          pool
+        ],
+        &is_nil/1
+      )
+
     Supervisor.init(
-      [
-        {Latch.NonceCache, config: config, name: name}
-      ],
+      children,
       strategy: :one_for_one
     )
   end
@@ -134,9 +147,11 @@ defmodule Latch do
     dpop_key = DPoP.generate_key()
     state = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
-    with {:ok, identity} <- Identity.resolve_handle(handle),
+    with {:ok, identity} <- Identity.resolve_handle(config, handle),
          {:ok, server} <-
-           Discovery.discover(identity.pds_endpoint, allow_http: Config.localhost?(config)),
+           Discovery.discover(config, identity.pds_endpoint,
+             allow_http: Config.localhost?(config)
+           ),
          {:ok, request_uri} <-
            Flow.par(config, server,
              client_id: Config.client_id(config),

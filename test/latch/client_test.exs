@@ -26,7 +26,7 @@ defmodule Latch.ClientTest do
 
       :ok = Latch.TestStore.put_session(@did, stale_session)
 
-      expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
+      expect(Discovery, :discover, fn _pool, @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :refresh, fn _config, ^server, ^stale_session, opts ->
         assert opts[:client_id] == Latch.Config.client_id(config)
@@ -63,7 +63,7 @@ defmodule Latch.ClientTest do
           {:ok, %{"did" => @did}}
       end)
 
-      expect(Discovery, :discover, fn @pds, _opts -> {:ok, server} end)
+      expect(Discovery, :discover, fn _pool, @pds, _opts -> {:ok, server} end)
 
       expect(Flow, :refresh, fn _config, ^server, ^stale_session, _opts ->
         {:ok, refreshed_session}

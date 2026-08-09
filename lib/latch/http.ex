@@ -12,15 +12,18 @@ defmodule Latch.HTTP do
 
   @receive_timeout 10_000
   @type body :: nil | {:json, map()} | {:raw, binary(), String.t()}
+  @type pool :: Finch.name() | keyword()
 
   @doc """
   GETs `url`, required a 2xx response, and decodes the body as a JSON object.
   """
-  @spec get_json(String.t()) ::
+  @spec get_json(pool(), String.t()) ::
           {:ok, map()}
           | {:error, Transport.t() | InvalidResponse.t()}
-  def get_json(url, opts \\ []) when is_binary(url) do
-    with {:ok, body} <- get_body(url, opts) do
+  def get_json(pool, url, opts \\ []) when is_binary(url) do
+    opts = allowed_opts(opts)
+
+    with {:ok, body} <- get_body(pool, url, opts) do
       case Jason.decode(body) do
         {:ok, %{} = json} -> {:ok, json}
         _ -> {:error, %InvalidResponse{reason: :invalid_json}}
@@ -31,34 +34,40 @@ defmodule Latch.HTTP do
   @doc """
   GETs `url`, requires a 2xx response, and returns the raw response body.
   """
-  @spec get_text(String.t()) ::
+  @spec get_text(pool(), String.t()) ::
           {:ok, String.t()}
           | {:error, Transport.t() | InvalidResponse.t()}
-  def get_text(url) when is_binary(url) do
-    get_body(url)
+  def get_text(pool, url, opts \\ []) when is_binary(url) do
+    opts = allowed_opts(opts)
+    get_body(pool, url, opts)
   end
 
   @doc """
   POSTs `form` as `application/x-www-form-urlencoded` with `headers`, returning
   the raw status, body, and response headers.
 
-  Unlike `get_json/1` this neither treats non-2xx as an error nor decodes the
+  Unlike `get_json` this neither treats non-2xx as an error nor decodes the
   body: atproto OAuth endpoints return meaningful JSON and a `DPoP-Nonce` header
   on 4xx responses, which the caller must inspect to drive the none retry.
   """
-  @spec post_form(String.t(), keyword() | map(), [{String.t(), String.t()}]) ::
+  @spec post_form(pool(), String.t(), keyword() | map(), [{String.t(), String.t()}]) ::
           {:ok,
            %{status: pos_integer(), body: binary(), headers: %{optional(binary()) => [binary()]}}}
           | {:error, Transport.t()}
-  def post_form(url, form, headers \\ []) do
-    options = [
-      url: url,
-      form: form,
-      headers: headers,
-      decode_body: false,
-      receive_timeout: @receive_timeout,
-      redirect: false
-    ]
+  def post_form(pool, url, form, headers \\ [], opts \\ []) do
+    options =
+      Keyword.merge(
+        [
+          url: url,
+          form: form,
+          headers: headers,
+          decode_body: false,
+          receive_timeout: @receive_timeout,
+          redirect: false,
+          finch: pool
+        ],
+        allowed_opts(opts)
+      )
 
     case Req.post(options) do
       {:ok, %Req.Response{status: status, body: body, headers: resp_headers}} ->
@@ -73,18 +82,19 @@ defmodule Latch.HTTP do
   Performs an HTTP request with the given method, headers, and optional
   body, returning the raw status, body, and response headers.
   """
-  @spec request(String.t(), String.t(), [{String.t(), String.t()}], body(), keyword()) ::
+  @spec request(pool(), String.t(), String.t(), [{String.t(), String.t()}], body(), keyword()) ::
           {:ok,
            %{status: pos_integer(), body: binary(), headers: %{optional(binary()) => [binary()]}}}
           | {:error, Transport.t()}
-  def request(method, url, headers, body \\ nil, http_opts \\ []) do
+  def request(pool, method, url, headers, body \\ nil, http_opts \\ []) do
     options = [
       method: method_atom(method),
       url: url,
       headers: headers,
       decode_body: false,
       receive_timeout: @receive_timeout,
-      redirect: false
+      redirect: false,
+      finch: pool
     ]
 
     req = put_body(options, body)
@@ -102,8 +112,16 @@ defmodule Latch.HTTP do
   defp method_atom("GET"), do: :get
   defp method_atom("POST"), do: :post
 
-  defp get_body(url, opts \\ []) when is_binary(url) do
-    opts = Keyword.merge([decode_body: false, receive_timeout: @receive_timeout], opts)
+  defp get_body(pool, url, opts) when is_binary(url) do
+    opts =
+      Keyword.merge(
+        [
+          decode_body: false,
+          receive_timeout: @receive_timeout,
+          finch: pool
+        ],
+        opts
+      )
 
     case Req.get(url, opts) do
       {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->

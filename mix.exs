@@ -36,13 +36,14 @@ defmodule Latch.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:req, "~> 0.5"},
+      {:req, "~> 0.7"},
       {:jose, "~> 1.11"},
       {:jason, "~> 1.2"},
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:mimic, "~> 2.3", only: :test},
       {:nimble_options, "~> 1.1"},
-      {:ex_doc, "~> 0.34", only: :dev}
+      {:ex_doc, "~> 0.34", only: :dev},
+      {:finch, "~> 0.23"}
     ]
   end
 

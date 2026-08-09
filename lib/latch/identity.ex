@@ -9,6 +9,7 @@ defmodule Latch.Identity do
   DID.
   """
 
+  alias Latch.Config
   alias Latch.DID
   alias Latch.DIDDocument
   alias Latch.DNS
@@ -36,17 +37,17 @@ defmodule Latch.Identity do
   Returns structured `Latch.Error` exceptions describing resolution,
   identity-verifiction, and transport failures.
   """
-  @spec resolve_handle(String.t()) ::
+  @spec resolve_handle(Config.t(), String.t()) ::
           {:ok, t()}
           | {:error,
              HandleNotFound.t() | IdentityMismatch.t() | InvalidResponse.t() | Transport.t()}
-  def resolve_handle(handle) when is_binary(handle) do
+  def resolve_handle(%Config{} = config, handle) when is_binary(handle) do
     handle = Handle.normalize(handle)
 
     with :ok <- validate_handle(handle),
-         {:ok, did} <- handle_to_did(handle),
+         {:ok, did} <- handle_to_did(config, handle),
          :ok <- validate_did(did, handle),
-         {:ok, document} <- did_to_document(did, handle),
+         {:ok, document} <- did_to_document(config, did, handle),
          {:ok, parsed} <- parse_did_document(document, did, handle),
          :ok <- confirm_bidirectional(parsed, handle) do
       {:ok, %__MODULE__{did: did, handle: handle, pds_endpoint: parsed.pds_endpoint}}
@@ -63,7 +64,7 @@ defmodule Latch.Identity do
 
   # DNS TXT is preferred, the HTTPS well-known method is only consulated when
   # DNS returns no record. Conflicting DNS records hard-fail per spec.
-  defp handle_to_did(handle) do
+  defp handle_to_did(config, handle) do
     case dns_did(handle) do
       {:ok, _did} = ok ->
         ok
@@ -72,7 +73,7 @@ defmodule Latch.Identity do
         {:error, %HandleNotFound{handle: handle, reason: :ambiguous_dns}}
 
       :none ->
-        https_did(handle)
+        https_did(config, handle)
     end
   end
 
@@ -103,8 +104,8 @@ defmodule Latch.Identity do
     end
   end
 
-  defp https_did(handle) do
-    case HTTP.get_text("https://" <> handle <> "/.well-known/atproto-did") do
+  defp https_did(config, handle) do
+    case HTTP.get_text(config.pool, "https://" <> handle <> "/.well-known/atproto-did") do
       {:ok, body} ->
         {:ok, String.trim(body)}
 
@@ -116,20 +117,20 @@ defmodule Latch.Identity do
     end
   end
 
-  defp did_to_document("did:plc:" <> _ = did, _handle) do
-    fetch_did_document(@plc_directory <> "/" <> did)
+  defp did_to_document(config, "did:plc:" <> _ = did, _handle) do
+    fetch_did_document(config, @plc_directory <> "/" <> did)
   end
 
-  defp did_to_document("did:web:" <> host, _handle) do
-    fetch_did_document("https://" <> URI.decode(host) <> "/.well-known/did.json")
+  defp did_to_document(config, "did:web:" <> host, _handle) do
+    fetch_did_document(config, "https://" <> URI.decode(host) <> "/.well-known/did.json")
   end
 
-  defp did_to_document(_did, handle) do
+  defp did_to_document(_config, _did, handle) do
     {:error, %HandleNotFound{handle: handle, reason: :unsupported_did_method}}
   end
 
-  defp fetch_did_document(url) do
-    HTTP.get_json(url)
+  defp fetch_did_document(config, url) do
+    HTTP.get_json(config.pool, url)
   end
 
   defp parse_did_document(document, did, handle) do
