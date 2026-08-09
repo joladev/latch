@@ -218,6 +218,8 @@ defmodule Latch do
   * `:service` - the service endpoint identifier when proxying through PDS, eg did:web:api.bsky.app#bsky_appview
   * `:params` - params for the method, eg `params: [actor: "did:plc:bvraa6gajy4tfr3eh2sisdkr"]` resulting in
     `app.bsky.actor.getProfile?actor=did:plc:bvraa6gajy4tfr3eh2sisdkr`
+  * `:http` - opts to pass through to the HTTP client
+    * `:receive_timeout` - milliseconds before timing out the request
 
   ## Examples
 
@@ -245,6 +247,8 @@ defmodule Latch do
   ## Options
 
   * `service` - the service endpoint identifier when proxying through PDS, eg did:web:api.bsky.app#bsky_appview
+  * `:http` - opts to pass through to the HTTP client
+    * `:receive_timeout` - milliseconds before timing out the request
 
   ## Examples
 
@@ -279,6 +283,8 @@ defmodule Latch do
   ## Options
 
   * `service` - the service endpoint identifier when proxying through PDS, eg did:web:api.bsky.app#bsky_appview
+  * `:http` - opts to pass through to the HTTP client
+    * `:receive_timeout` - milliseconds before timing out the request
   """
   @spec upload_blob(name(), String.t(), binary(), String.t(), keyword()) ::
           {:ok, map()}

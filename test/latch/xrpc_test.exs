@@ -22,7 +22,7 @@ defmodule Latch.XRPCTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      expect(HTTP, :request, fn http_method, url, headers, body ->
+      expect(HTTP, :request, fn http_method, url, headers, body, _opts ->
         assert http_method == "GET"
         assert url == "#{session.pds_endpoint}/xrpc/#{method}?#{URI.encode_query(params)}"
         assert {"atproto-proxy", service} in headers
@@ -50,7 +50,7 @@ defmodule Latch.XRPCTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      expect(HTTP, :request, fn http_method, url, headers, body ->
+      expect(HTTP, :request, fn http_method, url, headers, body, _opts ->
         assert http_method == "GET"
         assert url == "#{session.pds_endpoint}/xrpc/#{method}"
         assert {"authorization", "DPoP access-token"} in headers
@@ -62,6 +62,31 @@ defmodule Latch.XRPCTest do
       end)
 
       assert {:ok, %{"did" => "string"}} = XRPC.query(config, session, method, [])
+    end
+
+    test "passes http opts through" do
+      config = make_config()
+      session = make_session()
+      method = "com.atproto.server.getSession"
+
+      start_link_supervised!(
+        {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
+      )
+
+      expect(HTTP, :request, fn http_method, url, headers, body, opts ->
+        assert Keyword.fetch!(opts, :receive_timeout) == 30_000
+        assert http_method == "GET"
+        assert url == "#{session.pds_endpoint}/xrpc/#{method}"
+        assert {"authorization", "DPoP access-token"} in headers
+        assert {"dpop", _} = List.keyfind(headers, "dpop", 0)
+
+        assert body == nil
+
+        {:ok, %{status: 200, body: ~s|{"did": "string"}|, headers: %{}}}
+      end)
+
+      assert {:ok, %{"did" => "string"}} =
+               XRPC.query(config, session, method, http: [receive_timeout: 30_000])
     end
   end
 
@@ -77,7 +102,7 @@ defmodule Latch.XRPCTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      expect(HTTP, :request, fn http_method, url, headers, body ->
+      expect(HTTP, :request, fn http_method, url, headers, body, _opts ->
         assert http_method == "POST"
         assert url == "#{session.pds_endpoint}/xrpc/#{method}"
         assert {"atproto-proxy", service} in headers
@@ -106,7 +131,7 @@ defmodule Latch.XRPCTest do
         {Latch.NonceCache, config: config, name: config.name, sweep_disabled: true}
       )
 
-      expect(HTTP, :request, fn http_method, url, headers, body ->
+      expect(HTTP, :request, fn http_method, url, headers, body, _opts ->
         assert http_method == "POST"
         assert url == "#{session.pds_endpoint}/xrpc/#{method}"
         assert {"atproto-proxy", service} in headers

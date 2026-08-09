@@ -73,11 +73,11 @@ defmodule Latch.HTTP do
   Performs an HTTP request with the given method, headers, and optional
   body, returning the raw status, body, and response headers.
   """
-  @spec request(String.t(), String.t(), [{String.t(), String.t()}], body()) ::
+  @spec request(String.t(), String.t(), [{String.t(), String.t()}], body(), keyword()) ::
           {:ok,
            %{status: pos_integer(), body: binary(), headers: %{optional(binary()) => [binary()]}}}
           | {:error, Transport.t()}
-  def request(method, url, headers, body \\ nil) do
+  def request(method, url, headers, body \\ nil, http_opts \\ []) do
     options = [
       method: method_atom(method),
       url: url,
@@ -87,7 +87,10 @@ defmodule Latch.HTTP do
       redirect: false
     ]
 
-    case Req.request(put_body(options, body)) do
+    req = put_body(options, body)
+    http_opts = allowed_opts(http_opts)
+
+    case Req.request(req, http_opts) do
       {:ok, %Req.Response{status: status, body: resp_body, headers: resp_headers}} ->
         {:ok, %{status: status, body: resp_body, headers: resp_headers}}
 
@@ -121,5 +124,9 @@ defmodule Latch.HTTP do
     options
     |> Keyword.put(:body, body)
     |> Keyword.update!(:headers, &[{"content-type", content_type} | &1])
+  end
+
+  defp allowed_opts(opts) do
+    Keyword.take(opts, [:receive_timeout])
   end
 end
