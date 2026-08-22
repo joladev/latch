@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v0.6.0 (2026-08-22)
+
+### Breaking changes
+
+  * Require Req 0.7 or higher
+
+### Improvements
+
+ * Latch now defines its own Finch pool, with the option to override it.
+ * Configure `receive_timeout` on `Latch.query`, `Latch.procedure` and `Latch.upload_blob`.
+
 ## v0.5.0 (2026-08-02)
 
   * Breaking change: `client_id` and `redirect_uri` are replaced with `client_id_path`, `redirect_uri_path`, and `base_url_fun`, with the latter dynamically building the base URL, eg `&MyAppWeb.Endpoint.url/0`.
