@@ -396,7 +396,7 @@ defmodule Latch do
              token_endpoint: request.token_endpoint
            ),
          :ok <- store_session(config, session) do
-      {:ok, %{did: session.did, handle: request.handle}}
+      {:ok, %{did: session.did, handle: request.handle, pds_endpoint: session.pds_endpoint}}
     end
   end
 
