@@ -7,7 +7,6 @@ defmodule Latch.Error.HandleNotFound do
     * `:invalid_handle` - the handle was malformed
     * `:handle_not_found` - DNS and well-known lookups returned nothing
     * `:ambiguous_dns` - multiple distinct DIDs at one handle
-    * `:unsupported_did_method` - the resolved DID method is not implemented
   """
 
   defexception [:handle, :reason]

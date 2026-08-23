@@ -17,6 +17,7 @@ defmodule Latch.Identity do
   alias Latch.Error.IdentityMismatch
   alias Latch.Error.InvalidResponse
   alias Latch.Error.Transport
+  alias Latch.Error.UnsupportedDIDMethod
   alias Latch.Handle
   alias Latch.HTTP
 
@@ -40,17 +41,45 @@ defmodule Latch.Identity do
   @spec resolve_handle(Config.t(), String.t()) ::
           {:ok, t()}
           | {:error,
-             HandleNotFound.t() | IdentityMismatch.t() | InvalidResponse.t() | Transport.t()}
+             HandleNotFound.t()
+             | IdentityMismatch.t()
+             | InvalidResponse.t()
+             | Transport.t()
+             | UnsupportedDIDMethod.t()}
   def resolve_handle(%Config{} = config, handle) when is_binary(handle) do
     handle = Handle.normalize(handle)
 
     with :ok <- validate_handle(handle),
          {:ok, did} <- handle_to_did(config, handle),
          :ok <- validate_did(did, handle),
-         {:ok, document} <- did_to_document(config, did, handle),
+         {:ok, document} <- did_to_document(config, did),
          {:ok, parsed} <- parse_did_document(document, did, handle),
          :ok <- confirm_bidirectional(parsed, handle) do
-      {:ok, %__MODULE__{did: did, handle: handle, pds_endpoint: parsed.pds_endpoint}}
+      {:ok,
+       %__MODULE__{did: parsed.did, handle: parsed.handle, pds_endpoint: parsed.pds_endpoint}}
+    end
+  end
+
+  @doc """
+  Resolves and verifies a DID, returning the handle and PDS endpoint.
+
+  Returns structured `Latch.Error` exceptions describing resolution,
+  identity-verifiction, and transport failures.
+  """
+  @spec resolve_did(Config.t(), String.t()) ::
+          {:ok, t()}
+          | {:error,
+             HandleNotFound.t()
+             | IdentityMismatch.t()
+             | InvalidResponse.t()
+             | Transport.t()
+             | UnsupportedDIDMethod.t()}
+  def resolve_did(%Config{} = config, did) when is_binary(did) do
+    with :ok <- validate_did(did, nil),
+         {:ok, document} <- did_to_document(config, did),
+         {:ok, parsed} <- parse_did_document(document, did) do
+      {:ok,
+       %__MODULE__{did: parsed.did, handle: parsed.handle, pds_endpoint: parsed.pds_endpoint}}
     end
   end
 
@@ -117,21 +146,27 @@ defmodule Latch.Identity do
     end
   end
 
-  defp did_to_document(config, "did:plc:" <> _ = did, _handle) do
+  defp did_to_document(config, "did:plc:" <> _ = did) do
     plc_directory = config.plc_directory || @plc_directory
     fetch_did_document(config, plc_directory <> "/" <> did)
   end
 
-  defp did_to_document(config, "did:web:" <> host, _handle) do
+  defp did_to_document(config, "did:web:" <> host) do
     fetch_did_document(config, "https://" <> URI.decode(host) <> "/.well-known/did.json")
   end
 
-  defp did_to_document(_config, _did, handle) do
-    {:error, %HandleNotFound{handle: handle, reason: :unsupported_did_method}}
+  defp did_to_document(_config, did) do
+    {:error, %UnsupportedDIDMethod{did: did}}
   end
 
   defp fetch_did_document(config, url) do
     HTTP.get_json(config.pool, url)
+  end
+
+  defp parse_did_document(document, did) do
+    with {:error, reason} <- DIDDocument.parse(document, did) do
+      {:error, %IdentityMismatch{reason: reason}}
+    end
   end
 
   defp parse_did_document(document, did, handle) do

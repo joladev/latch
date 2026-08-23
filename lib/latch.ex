@@ -319,6 +319,46 @@ defmodule Latch do
     Latch.Client.upload_blob(config, did, bytes, content_type, opts)
   end
 
+  @doc """
+  Resolves and verifies a handle, returning its DID and PDS endpoint.
+
+  Returns structured `Latch.Error` exceptions describing resolution,
+  identity-verifiction, and transport failures.
+  """
+  @spec resolve_handle(name(), String.t()) ::
+          {:ok, Identity.t()}
+          | {:error,
+             HandleNotFound.t()
+             | IdentityMismatch.t()
+             | InvalidResponse.t()
+             | Transport.t()
+             | UnsupportedDIDMethod.t()}
+  def resolve_handle(name, handle) do
+    %Config{} = config = config(name)
+
+    Identity.resolve_handle(config, handle)
+  end
+
+  @doc """
+  Resolves and verifies a DID, returning the handle and PDS endpoint.
+
+  Returns structured `Latch.Error` exceptions describing resolution,
+  identity-verifiction, and transport failures.
+  """
+  @spec resolve_did(name(), String.t()) ::
+          {:ok, Identity.t()}
+          | {:error,
+             HandleNotFound.t()
+             | IdentityMismatch.t()
+             | InvalidResponse.t()
+             | Transport.t()
+             | UnsupportedDIDMethod.t()}
+  def resolve_did(name, did) do
+    %Config{} = config = config(name)
+
+    Identity.resolve_did(config, did)
+  end
+
   defp complete_callback(
          %{"error" => error, "iss" => issuer} = params,
          request,

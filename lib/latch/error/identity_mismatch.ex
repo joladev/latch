@@ -1,6 +1,6 @@
 defmodule Latch.Error.IdentityMismatch do
   @moduledoc """
-  A handle reoslved to a DID, but the DID document does not read back to it,
+  A handle resolved to a DID, but the DID document does not read back to it,
   or it lacks a usable PDS endpoint.
 
   ## `reason` values

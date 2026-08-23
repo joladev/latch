@@ -3,6 +3,8 @@ defmodule Latch.IdentityTest do
   use Mimic
 
   alias Latch.DNS
+  alias Latch.Error.InvalidResponse
+  alias Latch.Error.UnsupportedDIDMethod
   alias Latch.HTTP
   alias Latch.Identity
 
@@ -72,7 +74,7 @@ defmodule Latch.IdentityTest do
       end)
 
       expect(HTTP, :get_text, fn _pool, _url ->
-        {:error, %Latch.Error.InvalidResponse{reason: {:http_status, 404}}}
+        {:error, %InvalidResponse{reason: {:http_status, 404}}}
       end)
 
       reject(&HTTP.get_json/2)
@@ -134,10 +136,10 @@ defmodule Latch.IdentityTest do
       end)
 
       expect(HTTP, :get_json, fn _pool, _url ->
-        {:error, %Latch.Error.InvalidResponse{reason: {:http_status, 404}}}
+        {:error, %InvalidResponse{reason: {:http_status, 404}}}
       end)
 
-      assert {:error, %Latch.Error.InvalidResponse{reason: {:http_status, 404}}} =
+      assert {:error, %InvalidResponse{reason: {:http_status, 404}}} =
                Identity.resolve_handle(config, @handle)
     end
 
@@ -160,6 +162,55 @@ defmodule Latch.IdentityTest do
 
       assert {:ok, %{did: @did, handle: @handle, pds_endpoint: @pds_endpoint}} =
                Identity.resolve_handle(config, @handle)
+    end
+
+    test "unsupported did method" do
+      config = make_config()
+      did = "did:dns:potato"
+
+      expect(DNS, :lookup_txt, fn _record ->
+        ["did=#{did}"]
+      end)
+
+      assert {:error, %UnsupportedDIDMethod{did: ^did}} =
+               Identity.resolve_handle(config, @handle)
+    end
+  end
+
+  describe "resolve_did/2" do
+    test "returns PDS endpoint and handle" do
+      config = make_config()
+      did_document = make_did_document(@did, @handle, @pds_endpoint)
+
+      expect(HTTP, :get_json, fn _pool, url ->
+        assert url == "https://plc.directory/#{@did}"
+        {:ok, did_document}
+      end)
+
+      assert {:ok, %{did: @did, handle: @handle, pds_endpoint: @pds_endpoint}} =
+               Identity.resolve_did(config, @did)
+    end
+
+    test "resolves web dids" do
+      config = make_config()
+      did = "did:web:#{@handle}"
+      did_document = make_did_document(did, @handle, @pds_endpoint)
+
+      expect(HTTP, :get_json, fn _pool, url ->
+        assert url == "https://#{@handle}/.well-known/did.json"
+        {:ok, did_document}
+      end)
+
+      assert {:ok, %{did: ^did, handle: @handle, pds_endpoint: @pds_endpoint}} =
+               Identity.resolve_did(config, did)
+    end
+
+    test "unsupported did method" do
+      config = make_config()
+      did = "did:dns:potato"
+
+      assert {:error, %UnsupportedDIDMethod{did: ^did}} =
+               Identity.resolve_did(config, did)
     end
   end
 
