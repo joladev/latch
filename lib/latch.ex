@@ -29,6 +29,8 @@ defmodule Latch do
   alias Latch.Pool
   alias Latch.Request
 
+  @default_request_ttl 600
+
   @type name :: atom() | pid()
 
   @doc """
@@ -363,7 +365,12 @@ defmodule Latch do
   end
 
   defp store_request(config, request) do
-    with {:error, reason} <- config.store.put_request(request.state, request, config.request_ttl) do
+    with {:error, reason} <-
+           config.store.put_request(
+             request.state,
+             request,
+             config.request_ttl || @default_request_ttl
+           ) do
       {:error,
        %StoreError{
          action: :put_request,

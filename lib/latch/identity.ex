@@ -118,7 +118,8 @@ defmodule Latch.Identity do
   end
 
   defp did_to_document(config, "did:plc:" <> _ = did, _handle) do
-    fetch_did_document(config, @plc_directory <> "/" <> did)
+    plc_directory = config.plc_directory || @plc_directory
+    fetch_did_document(config, plc_directory <> "/" <> did)
   end
 
   defp did_to_document(config, "did:web:" <> host, _handle) do

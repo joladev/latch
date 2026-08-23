@@ -14,9 +14,8 @@ defmodule Latch.Config do
     * `:client_uri` - client home page
     * `:base_url_fun` - function to build the base URL for `redirect_uri` and `client_id`, because the host is frequently only known at runtime.
     * `:finch` - an optional Finch override to the Req client, refer to https://req.hexdocs.pm/Req.html#new/2 for the full set of options
+    * `:plc_directory` - optional override for the default PLC
   """
-
-  @default_request_ttl 600
 
   @enforce_keys [:store, :redirect_uri_path, :scope, :name, :mode, :base_url_fun]
   defstruct @enforce_keys ++
@@ -26,7 +25,8 @@ defmodule Latch.Config do
                 :client_name,
                 :client_uri,
                 :pool,
-                request_ttl: @default_request_ttl
+                :request_ttl,
+                :plc_directory
               ]
 
   @type mode :: :confidential | :public | :localhost
@@ -42,8 +42,9 @@ defmodule Latch.Config do
           name: atom() | pid(),
           client_name: String.t() | nil,
           client_uri: String.t() | nil,
-          request_ttl: non_neg_integer(),
-          pool: keyword()
+          request_ttl: non_neg_integer() | nil,
+          pool: keyword(),
+          plc_directory: String.t() | nil
         }
 
   @modes [:confidential, :public, :localhost]
@@ -58,9 +59,10 @@ defmodule Latch.Config do
     name: [type: {:or, [:atom, :pid]}, required: true],
     client_name: [type: :string, required: false],
     client_uri: [type: :string, required: false],
-    request_ttl: [type: :non_neg_integer, required: false, default: @default_request_ttl],
+    request_ttl: [type: :non_neg_integer, required: false],
     mode: [type: {:in, @modes}, required: true],
-    finch: [type: :keyword_list, required: false]
+    finch: [type: :keyword_list, required: false],
+    plc_directory: [type: :string, required: false]
   ]
 
   @doc false
@@ -81,7 +83,8 @@ defmodule Latch.Config do
       client_uri: validated[:client_uri],
       request_ttl: validated[:request_ttl],
       mode: mode,
-      pool: configure_pool(validated[:finch], validated[:name])
+      pool: configure_pool(validated[:finch], validated[:name]),
+      plc_directory: validated[:plc_directory]
     )
   end
 

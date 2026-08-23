@@ -26,9 +26,6 @@ defmodule Latch.ConfigTest do
       assert config.name == @name
       assert config.client_name == @client_name
       assert config.client_uri == @client_uri
-
-      # Verify that the default is populated
-      assert config.request_ttl
     end
 
     test "fails on invalid" do
