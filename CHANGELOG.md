@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v0.7.0 (2026-08-23)
+
+### Improvements
+
+  * Exposes `Latch.resolve_handle/2` and `Latch.resolve_did/2` for validation and verification, as well as looking up handle, DID, and PDS endpoint.
+  * Make PLC endpoint URL configurable with the new `plc_directory` option, useful for local development.
+
 ## v0.6.0 (2026-08-22)
 
 ### Breaking changes
