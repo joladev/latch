@@ -104,7 +104,7 @@ defmodule Latch.Config do
     "http://localhost?" <> URI.encode_query(redirect_uri: redirect_uri, scope: scope)
   end
 
-  def client_id(%__MODULE{client_id_path: client_id_path, base_url_fun: base_url_fun}) do
+  def client_id(%__MODULE__{client_id_path: client_id_path, base_url_fun: base_url_fun}) do
     base_url_fun.() <> client_id_path
   end
 
