@@ -17,6 +17,8 @@ defmodule Latch.NSID do
     byte_size(nsid) <= 317 and String.match?(nsid, @syntax)
   end
 
+  def valid?(nil), do: nil
+
   @doc """
   Takes an NSID like `site.standard.document` and extracts the last part, `document`.
   """

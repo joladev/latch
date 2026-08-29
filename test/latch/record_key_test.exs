@@ -25,6 +25,8 @@ defmodule Latch.RecordKeyTest do
       refute RecordKey.valid?("number(3)")
       refute RecordKey.valid?("\"quote\"")
       refute RecordKey.valid?("dHJ1ZQ==")
+
+      refute RecordKey.valid?(nil)
     end
   end
 end

@@ -25,6 +25,8 @@ defmodule Latch.DID do
     byte_size(did) <= @max_length and Regex.match?(@syntax, did) and method_valid?(did)
   end
 
+  def valid?(nil), do: false
+
   defp method_valid?("did:web:" <> host), do: Regex.match?(@web_host, host)
   defp method_valid?(_did), do: true
 end

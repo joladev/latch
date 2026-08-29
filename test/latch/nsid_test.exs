@@ -15,6 +15,8 @@ defmodule Latch.NSIDTest do
       refute NSID.valid?("com.exa💩ple.thing")
       refute NSID.valid?("com.example")
       refute NSID.valid?("com.example.3")
+
+      refute NSID.valid?(nil)
     end
   end
 

@@ -19,4 +19,6 @@ defmodule Latch.RecordKey do
   def valid?(key) when is_binary(key) do
     key not in [".", ".."] and String.match?(key, @regex)
   end
+
+  def valid?(nil), do: nil
 end
