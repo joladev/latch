@@ -75,27 +75,41 @@ defmodule Latch.Client do
   end
 
   defp refresh(config, did, stale_token) do
-    result =
-      config.store.update_session(did, fn session ->
-        if session.access_token == stale_token do
-          do_refresh(config, session)
-        else
-          {:ok, session}
-        end
+    name = :"#{config.name}_task_supervisor"
+
+    task =
+      Task.Supervisor.async_nolink(name, fn ->
+        config.store.update_session(did, fn session ->
+          if session.access_token == stale_token do
+            do_refresh(config, session)
+          else
+            {:ok, session}
+          end
+        end)
       end)
 
-    case result do
-      {:ok, session} ->
-        {:ok, session}
+    # Any disruption to the refresh process can result in a lost
+    # session, so this wraps it in some protection. We wait a reasonable
+    # amount of time and then return unknown error. The caller should treat
+    # it as a failed refresh, but in case they don't, there might be a chance
+    # it is recovered.
+    try do
+      case Task.await(task, 10_000) do
+        {:ok, session} ->
+          {:ok, session}
 
-      {:error, :not_found} ->
-        {:error, %NoSession{did: did}}
+        {:error, :not_found} ->
+          {:error, %NoSession{did: did}}
 
-      {:error, %RefreshFailed{}} = error ->
-        error
+        {:error, %RefreshFailed{}} = error ->
+          error
 
-      {:error, reason} ->
-        {:error, %StoreError{action: :update_session, did: did, reason: reason}}
+        {:error, reason} ->
+          {:error, %StoreError{action: :update_session, did: did, reason: reason}}
+      end
+    catch
+      kind, reason ->
+        {:error, %RefreshFailed{reason: {kind, reason}, did: did}}
     end
   end
 

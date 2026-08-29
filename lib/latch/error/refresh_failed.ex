@@ -2,7 +2,7 @@ defmodule Latch.Error.RefreshFailed do
   @moduledoc """
   	A token refresh was attempted and failed.
 
-   `reason` is the underlying `Latch.Error.t()` that caused the refresh
+   `reason` is the underlying error that caused the refresh
    to fail, including transient and permanent errors.
   """
 

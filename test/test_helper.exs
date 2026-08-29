@@ -5,5 +5,7 @@ Mimic.copy(Latch.Flow)
 Mimic.copy(Latch.HTTP)
 Mimic.copy(Latch.Identity)
 Mimic.copy(Latch.XRPC)
+Mimic.copy(Task.Supervisor)
+Mimic.copy(Latch.TestStore)
 
 ExUnit.start()

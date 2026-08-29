@@ -28,6 +28,10 @@ defmodule Latch.ClientTest do
 
       expect(Discovery, :discover, fn _pool, @pds, _opts -> {:ok, server} end)
 
+      expect(Task.Supervisor, :async_nolink, fn _name, fun ->
+        Task.completed(fun.())
+      end)
+
       expect(Flow, :refresh, fn _config, ^server, ^stale_session, opts ->
         assert opts[:client_id] == Latch.Config.client_id(config)
         assert opts[:client_jwk] == config.signing_key
@@ -64,6 +68,10 @@ defmodule Latch.ClientTest do
       end)
 
       expect(Discovery, :discover, fn _pool, @pds, _opts -> {:ok, server} end)
+
+      expect(Task.Supervisor, :async_nolink, fn _name, fun ->
+        Task.completed(fun.())
+      end)
 
       expect(Flow, :refresh, fn _config, ^server, ^stale_session, _opts ->
         {:ok, refreshed_session}

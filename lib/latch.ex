@@ -83,7 +83,8 @@ defmodule Latch do
       Enum.reject(
         [
           {Latch.NonceCache, config: config, name: name},
-          pool
+          pool,
+          {Task.Supervisor, name: :"#{name}_task_supervisor"}
         ],
         &is_nil/1
       )
