@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v0.8.0 (2026-09-04)
+
+  * Wrap token refreshes in an unlinked Task to ensure it always finishes, even when the caller exits.
+  * Introduces SpaceURI building and parsing, for the new permissioned data spaces.
+  * Adds `TID.to_unix/1`, `TID.to_datetime/1`, and `TID.to_datetime!/1` for extracting timestamps from TIDs.
+  * Exposes `pds_endpoint` in the OAuth callback result, for consistency.
+
 ## v0.7.0 (2026-08-23)
 
 ### Improvements
