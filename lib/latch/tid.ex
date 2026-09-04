@@ -71,6 +71,66 @@ defmodule Latch.TID do
     |> String.pad_leading(13, "2")
   end
 
+  @doc """
+  Each TID encodes a timestamp and a 10 bit clock ID. This returns the
+  timestamp part for you as a DateTime. Note that TIDs can be created
+  using any date, and it does not necessarily match when it was created
+  or have any relationship with the data the TID is used for.
+
+  `tid` must be a valid tid, use `valid?/1` to validate first.
+
+  Example:
+
+      Latch.TID.to_datetime("3mup4bbh67n2g")
+      iex> {:ok, ~U[2026-09-04 13:50:51.404467Z]}
+  """
+  def to_datetime(tid) when is_binary(tid) do
+    microseconds = to_unix(tid)
+    # 1788529851404467
+
+    DateTime.from_unix(microseconds, :microsecond)
+    # {:ok, ~U[2026-09-04 13:50:51.404467Z]}
+  end
+
+  @doc """
+  Like `to_datetime/1` but raises if the datetime is invalid.
+  """
+  def to_datetime!(tid) when is_binary(tid) do
+    {:ok, datetime} = to_datetime(tid)
+    datetime
+  end
+
+  @doc """
+  Each TID encodes a timestamp and a 10 bit clock ID. This returns the
+  timestamp part for you in the unix microseconds format. Note that TIDs
+  can be created using any date, and it does not necessarily match when
+  it was created or have any relationship with the data the TID is used for.
+
+  `tid` must be a valid tid, use `valid?/1` to validate first.
+  """
+  def to_unix(tid) when is_binary(tid) do
+    # Keeping the sample run that I used to work this out
+    # here as reference in case I need to come back to it.
+
+    # reference tid: "3mup4bbh67n2g"
+    codepoints = String.to_charlist(tid)
+    # [51, 109, 117, 112, 52, 98, 98, 104, 54, 55, 110, 50, 103]
+    mapped =
+      Enum.map(codepoints, fn c ->
+        {pos, 1} = :binary.match(@alphabet, <<c>>)
+        pos
+      end)
+
+    # [1, 18, 26, 21, 2, 7, 7, 13, 4, 5, 19, 0, 12]
+
+    int = Integer.undigits(mapped, 32)
+    # 1831454567838174220
+
+    # divide out the clock ID, leaving the timestamp
+    div(int, @offset)
+    # 1788529851404467
+  end
+
   defp random_clock_id do
     :rand.uniform(@offset) - 1
   end

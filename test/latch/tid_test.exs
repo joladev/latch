@@ -72,4 +72,42 @@ defmodule Latch.TidTest do
       end
     end
   end
+
+  describe "to_unix/1" do
+    test "extracts the timestamp from a TID" do
+      assert 1_788_529_851_404_467 == TID.to_unix("3mup4bbh67n2g")
+      assert 1_788_529_851_376_468 == TID.to_unix("3mup4bbgcuo2c")
+      assert 1_788_529_851_306_527 == TID.to_unix("3mup4bbe6kz2b")
+    end
+
+    test "extreme case" do
+      assert 0 == TID.to_unix("2222222222222")
+    end
+  end
+
+  describe "to_datetime/1" do
+    test "extracts the datetime from a TID" do
+      assert {:ok, ~U[2026-09-04 13:50:51.404467Z]} == TID.to_datetime("3mup4bbh67n2g")
+      assert {:ok, ~U[2026-09-04 13:50:51.376468Z]} == TID.to_datetime("3mup4bbgcuo2c")
+      assert {:ok, ~U[2026-09-04 13:50:51.306527Z]} == TID.to_datetime("3mup4bbe6kz2b")
+    end
+
+    test "roundtrips" do
+      tid = TID.at_time(~U[2026-01-01 00:00:00.000000Z], 0)
+      assert {:ok, ~U[2026-01-01 00:00:00.000000Z]} == TID.to_datetime(tid)
+
+      tid = TID.at_time(~U[2026-01-01 00:00:00.000000Z], 1023)
+      assert {:ok, ~U[2026-01-01 00:00:00.000000Z]} == TID.to_datetime(tid)
+    end
+
+    test "extreme case" do
+      assert {:ok, ~U[1970-01-01 00:00:00.000000Z]} == TID.to_datetime("2222222222222")
+    end
+  end
+
+  describe "to_datetime!/1" do
+    test "unwraps the tuple" do
+      assert ~U[2026-09-04 13:50:51.404467Z] == TID.to_datetime!("3mup4bbh67n2g")
+    end
+  end
 end
