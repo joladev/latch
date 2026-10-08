@@ -15,6 +15,7 @@ defmodule Latch.Config do
     * `:base_url_fun` - function to build the base URL for `redirect_uri` and `client_id`, because the host is frequently only known at runtime.
     * `:finch` - an optional Finch override to the Req client, refer to https://req.hexdocs.pm/Req.html#new/2 for the full set of options
     * `:plc_directory` - optional override for the default PLC
+    * `:slingshot_url` - an optional slingshot instance for identity resolution, eg `https://slingshot.cove.town`
   """
 
   @enforce_keys [:store, :redirect_uri_path, :scope, :name, :mode, :base_url_fun]
@@ -26,7 +27,8 @@ defmodule Latch.Config do
                 :client_uri,
                 :pool,
                 :request_ttl,
-                :plc_directory
+                :plc_directory,
+                :slingshot_url
               ]
 
   @type mode :: :confidential | :public | :localhost
@@ -44,7 +46,8 @@ defmodule Latch.Config do
           client_uri: String.t() | nil,
           request_ttl: non_neg_integer() | nil,
           pool: keyword(),
-          plc_directory: String.t() | nil
+          plc_directory: String.t() | nil,
+          slingshot_url: String.t() | nil
         }
 
   @modes [:confidential, :public, :localhost]
@@ -62,7 +65,8 @@ defmodule Latch.Config do
     request_ttl: [type: :non_neg_integer, required: false],
     mode: [type: {:in, @modes}, required: true],
     finch: [type: :keyword_list, required: false],
-    plc_directory: [type: :string, required: false]
+    plc_directory: [type: :string, required: false],
+    slingshot_url: [type: :string, required: false]
   ]
 
   @doc false
@@ -84,7 +88,8 @@ defmodule Latch.Config do
       request_ttl: validated[:request_ttl],
       mode: mode,
       pool: configure_pool(validated[:finch], validated[:name]),
-      plc_directory: validated[:plc_directory]
+      plc_directory: validated[:plc_directory],
+      slingshot_url: validated[:slingshot_url]
     )
   end
 

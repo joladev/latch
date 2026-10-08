@@ -3,6 +3,7 @@ defmodule Latch.IdentityTest do
   use Mimic
 
   alias Latch.DNS
+  alias Latch.Error.IdentityMismatch
   alias Latch.Error.InvalidResponse
   alias Latch.Error.UnsupportedDIDMethod
   alias Latch.HTTP
@@ -175,6 +176,46 @@ defmodule Latch.IdentityTest do
       assert {:error, %UnsupportedDIDMethod{did: ^did}} =
                Identity.resolve_handle(config, @handle)
     end
+
+    test "using slingshot" do
+      slingshot_url = "https://slingshot.cove.town"
+      config = make_config(slingshot_url: slingshot_url)
+
+      expect(HTTP, :get_json, fn _pool, url, _opts ->
+        assert String.starts_with?(url, slingshot_url)
+
+        {:ok,
+         %{
+           "signing_key" => "zQ3shQo6TF2moaqMTrUZEM1jeuYRQXeHEx4evX9751y2qPqRA",
+           "did" => @did,
+           "handle" => @handle,
+           "pds" => @pds_endpoint
+         }}
+      end)
+
+      assert {:ok, %{did: @did, handle: @handle, pds_endpoint: @pds_endpoint}} =
+               Identity.resolve_handle(config, @handle)
+    end
+
+    test "slingshot when handle fails bidirectional verification" do
+      slingshot_url = "https://slingshot.cove.town"
+      config = make_config(slingshot_url: slingshot_url)
+
+      expect(HTTP, :get_json, fn _pool, url, _opts ->
+        assert String.starts_with?(url, slingshot_url)
+
+        {:ok,
+         %{
+           "signing_key" => "zQ3shQo6TF2moaqMTrUZEM1jeuYRQXeHEx4evX9751y2qPqRA",
+           "did" => @did,
+           "handle" => "handle.invalid",
+           "pds" => @pds_endpoint
+         }}
+      end)
+
+      assert {:error, %IdentityMismatch{reason: :handle_mismatch}} =
+               Identity.resolve_handle(config, @handle)
+    end
   end
 
   describe "resolve_did/2" do
@@ -211,6 +252,26 @@ defmodule Latch.IdentityTest do
 
       assert {:error, %UnsupportedDIDMethod{did: ^did}} =
                Identity.resolve_did(config, did)
+    end
+
+    test "using slingshot" do
+      slingshot_url = "https://slingshot.cove.town"
+      config = make_config(slingshot_url: slingshot_url)
+
+      expect(HTTP, :get_json, fn _pool, url, _opts ->
+        assert String.starts_with?(url, slingshot_url)
+
+        {:ok,
+         %{
+           "signing_key" => "zQ3shQo6TF2moaqMTrUZEM1jeuYRQXeHEx4evX9751y2qPqRA",
+           "did" => @did,
+           "handle" => @handle,
+           "pds" => @pds_endpoint
+         }}
+      end)
+
+      assert {:ok, %{did: @did, handle: @handle, pds_endpoint: @pds_endpoint}} =
+               Identity.resolve_did(config, @did)
     end
   end
 

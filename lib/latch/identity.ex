@@ -46,6 +46,14 @@ defmodule Latch.Identity do
              | InvalidResponse.t()
              | Transport.t()
              | UnsupportedDIDMethod.t()}
+  def resolve_handle(%Config{slingshot_url: slingshot_url} = config, handle)
+      when is_binary(handle) and is_binary(slingshot_url) do
+    with {:ok, %{did: did, pds_endpoint: pds_endpoint, handle: handle}} <-
+           Latch.Slingshot.resolve_identity(config, handle) do
+      {:ok, %__MODULE__{did: did, pds_endpoint: pds_endpoint, handle: handle}}
+    end
+  end
+
   def resolve_handle(%Config{} = config, handle) when is_binary(handle) do
     handle = Handle.normalize(handle)
 
@@ -74,6 +82,14 @@ defmodule Latch.Identity do
              | InvalidResponse.t()
              | Transport.t()
              | UnsupportedDIDMethod.t()}
+  def resolve_did(%Config{slingshot_url: slingshot_url} = config, did)
+      when is_binary(did) and is_binary(slingshot_url) do
+    with {:ok, %{did: did, pds_endpoint: pds_endpoint, handle: handle}} <-
+           Latch.Slingshot.resolve_identity(config, did) do
+      {:ok, %__MODULE__{did: did, pds_endpoint: pds_endpoint, handle: handle}}
+    end
+  end
+
   def resolve_did(%Config{} = config, did) when is_binary(did) do
     with :ok <- validate_did(did, nil),
          {:ok, document} <- did_to_document(config, did),

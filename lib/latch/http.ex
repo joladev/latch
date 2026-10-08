@@ -145,6 +145,6 @@ defmodule Latch.HTTP do
   end
 
   defp allowed_opts(opts) do
-    Keyword.take(opts, [:receive_timeout])
+    Keyword.take(opts, [:receive_timeout, :params])
   end
 end
