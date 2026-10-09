@@ -16,10 +16,13 @@ defmodule Latch.Identity do
   alias Latch.Error.HandleNotFound
   alias Latch.Error.IdentityMismatch
   alias Latch.Error.InvalidResponse
+  alias Latch.Error.SlingshotUnavailable
   alias Latch.Error.Transport
   alias Latch.Error.UnsupportedDIDMethod
   alias Latch.Handle
   alias Latch.HTTP
+
+  require Logger
 
   @plc_directory "https://plc.directory"
 
@@ -48,9 +51,19 @@ defmodule Latch.Identity do
              | UnsupportedDIDMethod.t()}
   def resolve_handle(%Config{slingshot_url: slingshot_url} = config, handle)
       when is_binary(handle) and is_binary(slingshot_url) do
-    with {:ok, %{did: did, pds_endpoint: pds_endpoint, handle: handle}} <-
-           Latch.Slingshot.resolve_identity(config, handle) do
-      {:ok, %__MODULE__{did: did, pds_endpoint: pds_endpoint, handle: handle}}
+    case Latch.Slingshot.resolve_identity(config, handle) do
+      {:ok, %{did: did, pds_endpoint: pds_endpoint, handle: handle}} ->
+        {:ok, %__MODULE__{did: did, pds_endpoint: pds_endpoint, handle: handle}}
+
+      {:error, %SlingshotUnavailable{error: error}} ->
+        Logger.warning("Latch: failed identity resolution due to intermitten Slingshot error",
+          error: inspect(error)
+        )
+
+        resolve_handle(%{config | slingshot_url: nil}, handle)
+
+      {:error, _error} = error ->
+        error
     end
   end
 
@@ -84,9 +97,19 @@ defmodule Latch.Identity do
              | UnsupportedDIDMethod.t()}
   def resolve_did(%Config{slingshot_url: slingshot_url} = config, did)
       when is_binary(did) and is_binary(slingshot_url) do
-    with {:ok, %{did: did, pds_endpoint: pds_endpoint, handle: handle}} <-
-           Latch.Slingshot.resolve_identity(config, did) do
-      {:ok, %__MODULE__{did: did, pds_endpoint: pds_endpoint, handle: handle}}
+    case Latch.Slingshot.resolve_identity(config, did) do
+      {:ok, %{did: did, pds_endpoint: pds_endpoint, handle: handle}} ->
+        {:ok, %__MODULE__{did: did, pds_endpoint: pds_endpoint, handle: handle}}
+
+      {:error, %SlingshotUnavailable{error: error}} ->
+        Logger.warning("Latch: failed identity resolution due to intermitten Slingshot error",
+          error: inspect(error)
+        )
+
+        resolve_did(%{config | slingshot_url: nil}, did)
+
+      {:error, _error} = error ->
+        error
     end
   end
 
@@ -155,6 +178,9 @@ defmodule Latch.Identity do
         {:ok, String.trim(body)}
 
       {:error, %InvalidResponse{reason: {:http_status, 404}}} ->
+        {:error, %HandleNotFound{handle: handle, reason: :handle_not_found}}
+
+      {:error, %Transport{reason: %Req.TransportError{reason: :nxdomain}}} ->
         {:error, %HandleNotFound{handle: handle, reason: :handle_not_found}}
 
       {:error, _reason} = error ->

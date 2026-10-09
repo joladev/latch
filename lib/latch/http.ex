@@ -11,6 +11,8 @@ defmodule Latch.HTTP do
   alias Latch.Error.Transport
 
   @receive_timeout 10_000
+  @user_agent "latch (+https://tangled.org/jola.dev/latch)"
+
   @type body :: nil | {:json, map()} | {:raw, binary(), String.t()}
   @type pool :: Finch.name() | keyword()
 
@@ -54,19 +56,21 @@ defmodule Latch.HTTP do
           {:ok,
            %{status: pos_integer(), body: binary(), headers: %{optional(binary()) => [binary()]}}}
           | {:error, Transport.t()}
-  def post_form(pool, url, form, headers \\ [], opts \\ []) do
+  def post_form(pool, url, form, opts \\ []) do
+    opts = allowed_opts(opts)
+    opts = default_user_agent(opts)
+
     options =
       Keyword.merge(
         [
           url: url,
           form: form,
-          headers: headers,
           decode_body: false,
           receive_timeout: @receive_timeout,
           redirect: false,
           finch: pool
         ],
-        allowed_opts(opts)
+        opts
       )
 
     case Req.post(options) do
@@ -99,6 +103,7 @@ defmodule Latch.HTTP do
 
     req = put_body(options, body)
     http_opts = allowed_opts(http_opts)
+    http_opts = default_user_agent(http_opts)
 
     case Req.request(req, http_opts) do
       {:ok, %Req.Response{status: status, body: resp_body, headers: resp_headers}} ->
@@ -113,6 +118,8 @@ defmodule Latch.HTTP do
   defp method_atom("POST"), do: :post
 
   defp get_body(pool, url, opts) when is_binary(url) do
+    opts = default_user_agent(opts)
+
     opts =
       Keyword.merge(
         [
@@ -145,6 +152,17 @@ defmodule Latch.HTTP do
   end
 
   defp allowed_opts(opts) do
-    Keyword.take(opts, [:receive_timeout, :params])
+    Keyword.take(opts, [:receive_timeout, :params, :headers])
+  end
+
+  defp default_user_agent(opts) do
+    headers =
+      opts
+      |> Keyword.get(:headers, %{})
+      |> Map.merge(%{
+        "user-agent" => @user_agent
+      })
+
+    Keyword.put(opts, :headers, headers)
   end
 end

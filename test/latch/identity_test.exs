@@ -216,6 +216,28 @@ defmodule Latch.IdentityTest do
       assert {:error, %IdentityMismatch{reason: :handle_mismatch}} =
                Identity.resolve_handle(config, @handle)
     end
+
+    @tag capture_log: true
+    test "falls back to pds when slingshot down" do
+      slingshot_url = "https://slingshot.cove.town"
+      config = make_config(slingshot_url: slingshot_url)
+      did_document = make_did_document(@did, @handle, @pds_endpoint)
+
+      expect(HTTP, :get_json, fn _pool, _url, _opts ->
+        {:error, %InvalidResponse{reason: {:http_status, 500}}}
+      end)
+
+      expect(DNS, :lookup_txt, fn _record ->
+        ["did=#{@did}"]
+      end)
+
+      expect(HTTP, :get_json, fn _pool, _url ->
+        {:ok, did_document}
+      end)
+
+      assert {:ok, %{did: @did, handle: @handle, pds_endpoint: @pds_endpoint}} =
+               Identity.resolve_handle(config, @handle)
+    end
   end
 
   describe "resolve_did/2" do
@@ -268,6 +290,24 @@ defmodule Latch.IdentityTest do
            "handle" => @handle,
            "pds" => @pds_endpoint
          }}
+      end)
+
+      assert {:ok, %{did: @did, handle: @handle, pds_endpoint: @pds_endpoint}} =
+               Identity.resolve_did(config, @did)
+    end
+
+    @tag capture_log: true
+    test "fall back to plc on failure" do
+      slingshot_url = "https://slingshot.cove.town"
+      config = make_config(slingshot_url: slingshot_url)
+      did_document = make_did_document(@did, @handle, @pds_endpoint)
+
+      expect(HTTP, :get_json, fn _pool, _url, _opts ->
+        {:error, %InvalidResponse{reason: {:http_status, 500}}}
+      end)
+
+      expect(HTTP, :get_json, fn _pool, _url ->
+        {:ok, did_document}
       end)
 
       assert {:ok, %{did: @did, handle: @handle, pds_endpoint: @pds_endpoint}} =
