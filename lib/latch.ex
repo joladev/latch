@@ -28,6 +28,8 @@ defmodule Latch do
   alias Latch.PKCE
   alias Latch.Pool
   alias Latch.Request
+  alias Latch.Session
+  alias Latch.SessionInfo
 
   @default_request_ttl 600
 
@@ -358,6 +360,28 @@ defmodule Latch do
     %Config{} = config = config(name)
 
     Identity.resolve_did(config, did)
+  end
+
+  @doc """
+  Looks up the DID in the session store and returns info on the session
+  if it exists. The session may be expired. Does not return `access_token`
+  nor `refresh_token` as they should be considered internal to Latch.
+  """
+  @spec session_info(name(), String.t()) ::
+          {:ok, SessionInfo.t()} | {:error, StoreError.t() | NoSession.t()}
+  def session_info(name, did) do
+    %Config{} = config = config(name)
+
+    case config.store.fetch_session(did) do
+      {:ok, %Session{} = session} ->
+        {:ok, SessionInfo.from_session(session)}
+
+      {:error, :not_found} ->
+        {:error, %NoSession{did: did}}
+
+      {:error, reason} ->
+        {:error, %StoreError{action: :fetch_session, did: did, reason: reason}}
+    end
   end
 
   defp complete_callback(

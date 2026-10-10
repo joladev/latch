@@ -11,6 +11,7 @@ defmodule LatchTest do
   alias Latch.Request
   alias Latch.ServerMetadata
   alias Latch.Session
+  alias Latch.SessionInfo
 
   @did "did:plc:bvraa6gajy4tfr3eh2sisdkr"
   @handle "jola.dev"
@@ -305,6 +306,40 @@ defmodule LatchTest do
     end
   end
 
+  describe "session_info/2" do
+    test "returns SessionInfo" do
+      pid =
+        start_latch(
+          store: Latch.TestStore,
+          client_id_path: @client_id_path,
+          redirect_uri_path: @redirect_uri_path,
+          scope: "atproto",
+          signing_key: Jason.encode!(DPoP.generate_key()),
+          mode: :confidential,
+          base_url_fun: fn -> "https://client.example.com" end
+        )
+
+      %{
+        scope: scope,
+        did: did,
+        issuer: issuer,
+        pds_endpoint: pds_endpoint,
+        expires_at: expires_at
+      } = valid_session = session("access-token", ~U[2030-01-01 00:00:00Z])
+
+      :ok = Latch.TestStore.put_session(@did, valid_session)
+
+      assert {:ok,
+              %SessionInfo{
+                did: ^did,
+                scope: ^scope,
+                issuer: ^issuer,
+                pds_endpoint: ^pds_endpoint,
+                expires_at: ^expires_at
+              }} = Latch.session_info(pid, @did)
+    end
+  end
+
   defp server do
     %ServerMetadata{
       issuer: @issuer,
@@ -312,6 +347,19 @@ defmodule LatchTest do
       token_endpoint: @issuer <> "/oauth/token",
       par_endpoint: @issuer <> "/oauth/par",
       scopes_supported: ["atproto"]
+    }
+  end
+
+  defp session(access_token, expires_at) do
+    %Session{
+      did: @did,
+      access_token: access_token,
+      refresh_token: "refresh-token",
+      dpop_key: nil,
+      scope: "atproto",
+      issuer: @issuer,
+      pds_endpoint: @pds,
+      expires_at: expires_at
     }
   end
 
