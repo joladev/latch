@@ -9,7 +9,7 @@ It comes with DPoP nonce caching built-in, which cuts down on round-trips over m
 ```elixir
 def deps do
   [
-    {:latch, "~> 0.8.0"}
+    {:latch, "~> 0.9.0"}
   ]
 end
 ```

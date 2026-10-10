@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v0.9.0 (2026-10-10)
+
+  * Set `slingshot_url` in your Latch config and Latch will automatically use it for identity resolution when possible, saving network roundtrips and reducing reliance on the PDS.
+  * Implements a fallback on unexpected errors from the configured Slingshot instance, switching to resolving identity using PLC/PDS instead.
+  * Adds `Latch.Public.query`, an unauthenticated companion for `Latch.query`, Slingshot compatible.
+  * Adds `Latch.session_info` to look up a DID and get the PDS endpoint and session related metadata.
+
 ## v0.8.0 (2026-09-04)
 
   * Wrap token refreshes in an unlinked Task to ensure it always finishes, even when the caller exits.
